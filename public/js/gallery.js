@@ -58,7 +58,7 @@ class Gallery {
       let yearDivider = '';
       if (item.year !== currentYear) {
         currentYear = item.year;
-        yearDivider = `<div class="year-divider">${item.year}</div>`;
+        yearDivider = `<div class="year-divider" data-year="${item.year}">${item.year}</div>`;
       }
 
       return yearDivider + `
@@ -75,6 +75,7 @@ class Gallery {
 
     this.container.innerHTML = html;
     this.attachClickHandlers();
+    this.updateYearIndex();
   }
 
   /**
@@ -248,6 +249,11 @@ class Gallery {
     this.sortItems();
     this.sortFilteredItems();
     this.render();
+
+    // Update year index if in flat mode
+    if (this.displayMode === 'flat') {
+      this.updateYearIndex();
+    }
   }
 
   /**
@@ -380,6 +386,12 @@ class Gallery {
     this.currentPath = [year]; // Start from year folder, showing event folders directly
     this.applyFilters();
     this.updateBreadcrumb();
+
+    // Hide year index in hierarchical mode
+    const yearIndex = document.getElementById('year-index');
+    if (yearIndex) {
+      yearIndex.style.display = 'none';
+    }
   }
 
   /**
@@ -430,5 +442,123 @@ class Gallery {
         this.navigateBack(depth);
       });
     });
+  }
+
+  /**
+   * Update year index navigation
+   */
+  updateYearIndex() {
+    const yearIndex = document.getElementById('year-index');
+    if (!yearIndex) return;
+
+    // Show only in flat mode
+    if (this.displayMode !== 'flat') {
+      yearIndex.style.display = 'none';
+      return;
+    }
+
+    yearIndex.style.display = 'flex';
+
+    // Get unique years from filtered items (sort based on sortOrder)
+    const allYears = [...new Set(this.filteredItems.map(item => item.year))].sort((a, b) =>
+      this.sortOrder === 'desc' ? b.localeCompare(a) : a.localeCompare(b)
+    );
+
+    // Calculate how many years can fit on screen
+    const topOffset = 140; // CSS top value
+    const bottomOffset = 20; // CSS bottom value
+    const padding = 30; // Top + bottom padding
+    const availableHeight = window.innerHeight - topOffset - bottomOffset - padding;
+    const minItemHeight = 25; // Minimum height per item (font + padding)
+    const maxItems = Math.floor(availableHeight / minItemHeight);
+
+    // Thin out years if needed
+    let years = allYears;
+    if (allYears.length > maxItems) {
+      const step = Math.ceil(allYears.length / maxItems);
+      years = allYears.filter((_, index) => index % step === 0);
+
+      // Always include the first year (newest) and last year (oldest)
+      if (!years.includes(allYears[0])) {
+        years.unshift(allYears[0]);
+      }
+      if (!years.includes(allYears[allYears.length - 1])) {
+        years.push(allYears[allYears.length - 1]);
+      }
+    }
+
+    // Build year index items
+    const html = years.map(year =>
+      `<div class="year-index-item" data-year="${year}">${year}</div>`
+    ).join('');
+
+    yearIndex.innerHTML = html;
+
+    // Attach click handlers
+    yearIndex.querySelectorAll('.year-index-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const year = item.dataset.year;
+        const yearDivider = document.querySelector(`.year-divider[data-year="${year}"]`);
+        if (yearDivider) {
+          yearDivider.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    // Update active year on scroll
+    this.updateActiveYear();
+
+    // Add resize listener for recalculation
+    if (!this.resizeListenerAdded) {
+      this.resizeListenerAdded = true;
+      let resizeTimeout;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          if (this.displayMode === 'flat') {
+            this.updateYearIndex();
+          }
+        }, 200); // 200ms debounce
+      });
+    }
+  }
+
+  /**
+   * Update active year in year index based on scroll position
+   */
+  updateActiveYear() {
+    if (this.displayMode !== 'flat') return;
+
+    const yearDividers = document.querySelectorAll('.year-divider[data-year]');
+    const yearIndexItems = document.querySelectorAll('.year-index-item');
+
+    const handleScroll = () => {
+      const scrollPos = window.scrollY + 150; // Offset for header
+
+      let activeYear = null;
+      yearDividers.forEach(divider => {
+        const top = divider.offsetTop;
+        if (scrollPos >= top) {
+          activeYear = divider.dataset.year;
+        }
+      });
+
+      yearIndexItems.forEach(item => {
+        if (item.dataset.year === activeYear) {
+          item.classList.add('active');
+        } else {
+          item.classList.remove('active');
+        }
+      });
+    };
+
+    // Remove old listener if exists
+    if (this.scrollListener) {
+      window.removeEventListener('scroll', this.scrollListener);
+    }
+
+    this.scrollListener = handleScroll;
+    window.addEventListener('scroll', handleScroll);
+    handleScroll(); // Initial update
   }
 }

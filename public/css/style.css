@@ -408,6 +408,55 @@ body {
   font-size: 16px;
 }
 
+/* Year Index Navigation */
+.year-index {
+  position: fixed;
+  right: 0;
+  top: 140px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 15px 8px;
+  background: transparent;
+  opacity: 0.4;
+  transition: opacity 0.3s, background 0.3s;
+  z-index: 50;
+  overflow: hidden;
+  align-items: center;
+  width: 70px;
+}
+
+.year-index:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.08);
+}
+
+.year-index-item {
+  cursor: pointer;
+  color: #999;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  text-align: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.year-index-item:hover {
+  color: #007aff;
+  background: #f0f0f0;
+  transform: scale(1.05);
+}
+
+.year-index-item.active {
+  color: #007aff;
+  font-weight: 600;
+  background: #e3f2ff;
+}
+
 /* Folder Card */
 .grid-item.folder {
   cursor: pointer;
