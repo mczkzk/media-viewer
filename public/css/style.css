@@ -72,9 +72,26 @@ body {
 /* Gallery Grid */
 .gallery-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 16px;
   padding: 20px;
+}
+
+/* Default size (medium) */
+.gallery-container,
+.gallery-container.size-medium {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+/* Small thumbnails - more images on screen */
+.gallery-container.size-small {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+/* Large thumbnails - fewer, bigger images */
+.gallery-container.size-large {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
 }
 
 .grid-item {

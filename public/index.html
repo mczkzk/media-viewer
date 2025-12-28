@@ -20,6 +20,11 @@
           <option value="desc">新しい順</option>
           <option value="asc">古い順</option>
         </select>
+        <select id="thumbnail-size" class="filter-select">
+          <option value="small">小</option>
+          <option value="medium" selected>中</option>
+          <option value="large">大</option>
+        </select>
         <div class="stats">
           <span id="stats-text">読み込み中...</span>
         </div>
@@ -103,6 +108,12 @@
         const sortOrder = document.getElementById('sort-order');
         sortOrder.addEventListener('change', (e) => {
           gallery.setSortOrder(e.target.value);
+        });
+
+        // Thumbnail size handler
+        const thumbnailSize = document.getElementById('thumbnail-size');
+        thumbnailSize.addEventListener('change', (e) => {
+          galleryContainer.className = 'gallery-container size-' + e.target.value;
         });
 
       } catch (error) {

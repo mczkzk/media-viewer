@@ -167,7 +167,7 @@ class Gallery {
    */
   getYears() {
     const years = new Set(this.mediaItems.map(item => item.year));
-    return Array.from(years).sort();
+    return Array.from(years).sort((a, b) => b.localeCompare(a)); // Descending order
   }
 
   /**
