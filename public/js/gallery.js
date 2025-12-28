@@ -33,7 +33,7 @@ class Gallery {
    */
   render() {
     if (this.filteredItems.length === 0) {
-      this.container.innerHTML = '<div class="loading">メディアが見つかりません</div>';
+      this.container.innerHTML = '<div class="loading-message">メディアが見つかりません</div>';
       return;
     }
 

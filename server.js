@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs').promises;
@@ -6,10 +7,10 @@ const scanner = require('./lib/scanner');
 const thumbnail = require('./lib/thumbnail');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Base path for media files
-const MEDIA_BASE_PATH = path.join(__dirname, '..');
+// Base path for media files (from .env or default to parent directory)
+const MEDIA_BASE_PATH = process.env.MEDIA_BASE_PATH || path.join(__dirname, '..');
 
 // Serve static files from public directory
 app.use(express.static('public'));

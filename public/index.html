@@ -25,6 +25,7 @@
           <option value="medium" selected>中</option>
           <option value="large">大</option>
         </select>
+        <button id="rescan-btn" class="rescan-btn" title="ファイルを再スキャン">🔄</button>
         <div class="stats">
           <span id="stats-text">読み込み中...</span>
         </div>
@@ -33,7 +34,7 @@
 
     <!-- Gallery Grid -->
     <main class="gallery-container" id="gallery">
-      <div class="loading">読み込み中...</div>
+      <div class="loading-message">読み込み中...</div>
     </main>
 
     <!-- Lightbox Modal -->
@@ -116,10 +117,31 @@
           galleryContainer.className = 'gallery-container size-' + e.target.value;
         });
 
+        // Rescan button handler
+        const rescanBtn = document.getElementById('rescan-btn');
+        rescanBtn.addEventListener('click', async () => {
+          if (rescanBtn.classList.contains('loading')) return;
+
+          rescanBtn.classList.add('loading');
+          statsText.textContent = '再スキャン中...';
+
+          try {
+            const response = await fetch('/api/scan');
+            const result = await response.json();
+
+            // Reload page to refresh gallery
+            location.reload();
+          } catch (error) {
+            console.error('Rescan failed:', error);
+            alert('再スキャンに失敗しました');
+            rescanBtn.classList.remove('loading');
+          }
+        });
+
       } catch (error) {
         console.error('Failed to initialize app:', error);
         document.getElementById('gallery').innerHTML =
-          '<div class="error">メディアの読み込みに失敗しました</div>';
+          '<div class="error-message">メディアの読み込みに失敗しました</div>';
       }
     });
   </script>

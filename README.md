@@ -41,17 +41,25 @@ npm install
 
 ## ⚙️ セットアップ
 
-### メディアファイルのパスを設定
+### 環境変数の設定
 
-`server.js` の11行目を編集して、メディアファイルのベースパスを設定：
+`.env.example` をコピーして `.env` を作成：
 
-```javascript
-// Base path for media files
-const MEDIA_BASE_PATH = path.join(__dirname, '..');
+```bash
+cp .env.example .env
 ```
 
-**デフォルト**: 親ディレクトリ (`../`)
-**カスタマイズ例**: `/Volumes/Extreme SSD/Photos`
+`.env` を編集してメディアファイルのパスを設定：
+
+```bash
+# Media files directory path
+MEDIA_BASE_PATH=/Volumes/Extreme SSD/00_Memories/Selected_Media
+
+# Server port (default: 3000)
+PORT=3000
+```
+
+**注意**: `.env` ファイルは `.gitignore` に含まれており、Gitにコミットされません
 
 ### ディレクトリ構造の想定
 
