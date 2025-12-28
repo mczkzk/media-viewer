@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Cache directories (regenerated on demand)
+cache/
+
+# Media files (original data should not be in this repo)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.heic
+*.heif
+*.mp4
+*.mov
+*.avi
+*.m4v
+*.mkv
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp

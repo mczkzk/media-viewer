@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>メディアビューワー</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1>📷 メディアビューワー</h1>
+      <div class="filter-bar">
+        <select id="year-filter" class="filter-select">
+          <option value="">すべての年</option>
+        </select>
+        <input type="text" id="search-input" class="search-input" placeholder="イベント名で検索...">
+        <div class="stats">
+          <span id="stats-text">読み込み中...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Gallery Grid -->
+    <main class="gallery-container" id="gallery">
+      <div class="loading">読み込み中...</div>
+    </main>
+
+    <!-- Lightbox Modal -->
+    <div class="lightbox-modal" id="lightbox">
+      <button class="lightbox-close" id="lightbox-close">&times;</button>
+      <button class="lightbox-prev" id="lightbox-prev">&lt;</button>
+      <button class="lightbox-next" id="lightbox-next">&gt;</button>
+      <div class="lightbox-content" id="lightbox-content">
+        <img src="" alt="">
+      </div>
+      <div class="lightbox-info" id="lightbox-info">
+        <span class="lightbox-filename"></span>
+        <span class="lightbox-counter"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/js/gallery.js"></script>
+  <script src="/js/lightbox.js"></script>
+  <script>
+    // Initialize app
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        // Create gallery instance
+        const galleryContainer = document.getElementById('gallery');
+        const gallery = new Gallery(galleryContainer);
+
+        // Load media data
+        await gallery.load();
+
+        // Create lightbox instance
+        const lightbox = new Lightbox(gallery);
+
+        // Setup filter controls
+        const yearFilter = document.getElementById('year-filter');
+        const searchInput = document.getElementById('search-input');
+        const statsText = document.getElementById('stats-text');
+
+        // Populate year filter
+        const years = gallery.getYears();
+        years.forEach(year => {
+          const option = document.createElement('option');
+          option.value = year;
+          option.textContent = year;
+          yearFilter.appendChild(option);
+        });
+
+        // Update stats
+        function updateStats() {
+          const total = gallery.filteredItems.length;
+          const images = gallery.filteredItems.filter(item => item.type === 'image').length;
+          const videos = gallery.filteredItems.filter(item => item.type === 'video').length;
+          statsText.textContent = `全${total}件（写真${images}、動画${videos}）`;
+        }
+
+        updateStats();
+
+        // Year filter handler
+        yearFilter.addEventListener('change', (e) => {
+          gallery.filterByYear(e.target.value);
+          updateStats();
+        });
+
+        // Search input handler
+        searchInput.addEventListener('input', (e) => {
+          gallery.filterByEvent(e.target.value);
+          updateStats();
+        });
+
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+        document.getElementById('gallery').innerHTML =
+          '<div class="error">メディアの読み込みに失敗しました</div>';
+      }
+    });
+  </script>
+</body>
+</html>
