@@ -11,6 +11,7 @@
     <!-- Header -->
     <header class="header">
       <h1>📷 メディアビューワー</h1>
+      <div class="breadcrumb" id="breadcrumb" style="display: none;"></div>
       <div class="filter-bar">
         <select id="year-filter" class="filter-select">
           <option value="">すべての年</option>
@@ -93,9 +94,22 @@
 
         updateStats();
 
+        // Title click handler - return to flat view
+        const title = document.querySelector('.header h1');
+        title.style.cursor = 'pointer';
+        title.addEventListener('click', () => {
+          yearFilter.value = '';
+          gallery.switchToFlatMode();
+          updateStats();
+        });
+
         // Year filter handler
         yearFilter.addEventListener('change', (e) => {
-          gallery.filterByYear(e.target.value);
+          if (e.target.value) {
+            gallery.switchToHierarchicalMode(e.target.value);
+          } else {
+            gallery.switchToFlatMode();
+          }
           updateStats();
         });
 
