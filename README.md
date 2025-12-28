@@ -55,8 +55,8 @@ cp .env.example .env
 # Media files directory path
 MEDIA_BASE_PATH=/Volumes/Extreme SSD/00_Memories/Selected_Media
 
-# Server port (default: 3000)
-PORT=3000
+# Server port (default: 9000)
+PORT=9000
 ```
 
 **注意**: `.env` ファイルは `.gitignore` に含まれており、Gitにコミットされません
@@ -84,10 +84,30 @@ PORT=3000
 node server.js
 ```
 
+### サーバー停止
+
+**方法1: キーボードショートカット**
+```bash
+# ターミナルでサーバー実行中に
+Ctrl + C
+```
+
+**方法2: プロセスを探して停止**
+```bash
+# ポート9000を使用しているプロセスを検索
+lsof -i :9000
+
+# 表示されたPIDを使って停止
+kill -9 <PID>
+
+# または一行で実行
+lsof -ti :9000 | xargs kill -9
+```
+
 ### ブラウザでアクセス
 
 ```
-http://localhost:3000
+http://localhost:9000
 ```
 
 ### 操作方法
@@ -158,12 +178,12 @@ node server.js
 - 自動的に再帰スキャンされます（階層制限なし）
 - `cache/index.json`を削除して再スキャン
 
-### ポート3000が使用中
+### ポート9000が使用中
 
-`server.js` の8行目を編集：
+`.env` ファイルでポート番号を変更：
 
-```javascript
-const PORT = 3001; // 別のポートに変更
+```bash
+PORT=9001  # 別のポートに変更
 ```
 
 ## 📊 対応フォーマット
