@@ -37,9 +37,18 @@ class Gallery {
       return;
     }
 
+    let currentYear = null;
     const html = this.filteredItems.map((item, index) => {
       const videoClass = item.type === 'video' ? 'video' : '';
-      return `
+
+      // Add year divider when year changes
+      let yearDivider = '';
+      if (item.year !== currentYear) {
+        currentYear = item.year;
+        yearDivider = `<div class="year-divider">${item.year}</div>`;
+      }
+
+      return yearDivider + `
         <div class="grid-item ${videoClass} loading" data-index="${index}">
           <img src="/api/thumbnail?path=${encodeURIComponent(item.path)}"
                alt="${item.filename}"

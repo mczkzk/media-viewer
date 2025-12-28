@@ -76,6 +76,21 @@ body {
   padding: 20px;
 }
 
+/* Year divider */
+.year-divider {
+  grid-column: 1 / -1;
+  font-size: 28px;
+  font-weight: 600;
+  color: #333;
+  padding: 30px 0 15px 0;
+  border-bottom: 2px solid #ddd;
+  margin-bottom: 10px;
+}
+
+.year-divider:first-child {
+  padding-top: 0;
+}
+
 /* Default size (medium) */
 .gallery-container,
 .gallery-container.size-medium {
