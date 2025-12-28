@@ -79,13 +79,28 @@
         const statsText = document.getElementById('stats-text');
 
         // Populate year filter
-        const years = gallery.getYears();
-        years.forEach(year => {
-          const option = document.createElement('option');
-          option.value = year;
-          option.textContent = year;
-          yearFilter.appendChild(option);
-        });
+        function updateYearFilter() {
+          const currentValue = yearFilter.value;
+
+          // Remove all options except first ("すべての年")
+          while (yearFilter.options.length > 1) {
+            yearFilter.remove(1);
+          }
+
+          // Repopulate with current sort order
+          const years = gallery.getYears();
+          years.forEach(year => {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            yearFilter.appendChild(option);
+          });
+
+          // Restore selection
+          yearFilter.value = currentValue;
+        }
+
+        updateYearFilter();
 
         // Update stats
         function updateStats() {
@@ -126,6 +141,7 @@
         const sortOrder = document.getElementById('sort-order');
         sortOrder.addEventListener('change', (e) => {
           gallery.setSortOrder(e.target.value);
+          updateYearFilter();
         });
 
         // Thumbnail size handler

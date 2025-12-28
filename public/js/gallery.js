@@ -257,11 +257,13 @@ class Gallery {
   }
 
   /**
-   * Get all unique years
+   * Get all unique years (sorted by sortOrder)
    */
   getYears() {
     const years = new Set(this.mediaItems.map(item => item.year));
-    return Array.from(years).sort((a, b) => b.localeCompare(a)); // Descending order
+    return Array.from(years).sort((a, b) =>
+      this.sortOrder === 'desc' ? b.localeCompare(a) : a.localeCompare(b)
+    );
   }
 
   /**
