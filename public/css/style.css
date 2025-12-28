@@ -128,19 +128,19 @@ body {
 /* Default size (medium) */
 .gallery-container,
 .gallery-container.size-medium {
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
 }
 
 /* Small thumbnails - more images on screen */
 .gallery-container.size-small {
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   gap: 12px;
 }
 
 /* Large thumbnails - fewer, bigger images */
 .gallery-container.size-large {
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
 }
 
 .grid-item {
