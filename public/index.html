@@ -16,6 +16,10 @@
           <option value="">すべての年</option>
         </select>
         <input type="text" id="search-input" class="search-input" placeholder="イベント名で検索...">
+        <select id="sort-order" class="filter-select">
+          <option value="desc">新しい順</option>
+          <option value="asc">古い順</option>
+        </select>
         <div class="stats">
           <span id="stats-text">読み込み中...</span>
         </div>
@@ -93,6 +97,12 @@
         searchInput.addEventListener('input', (e) => {
           gallery.filterByEvent(e.target.value);
           updateStats();
+        });
+
+        // Sort order handler
+        const sortOrder = document.getElementById('sort-order');
+        sortOrder.addEventListener('change', (e) => {
+          gallery.setSortOrder(e.target.value);
         });
 
       } catch (error) {

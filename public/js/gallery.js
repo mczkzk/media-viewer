@@ -5,6 +5,7 @@ class Gallery {
     this.filteredItems = [];
     this.selectedYear = '';
     this.searchQuery = '';
+    this.sortOrder = 'desc'; // Default: newest first
   }
 
   /**
@@ -18,6 +19,7 @@ class Gallery {
       }
 
       this.mediaItems = await response.json();
+      this.sortItems();
       this.filteredItems = this.mediaItems;
       this.render();
     } catch (error) {
@@ -95,7 +97,69 @@ class Gallery {
       return matchesYear && matchesSearch;
     });
 
+    this.sortFilteredItems();
     this.render();
+  }
+
+  /**
+   * Sort items by year, event, and filename
+   */
+  sortItems() {
+    this.mediaItems.sort((a, b) => {
+      // Primary sort: by year
+      const yearCompare = this.sortOrder === 'desc'
+        ? b.year.localeCompare(a.year)
+        : a.year.localeCompare(b.year);
+
+      if (yearCompare !== 0) return yearCompare;
+
+      // Secondary sort: by event name
+      const eventCompare = this.sortOrder === 'desc'
+        ? b.event.localeCompare(a.event)
+        : a.event.localeCompare(b.event);
+
+      if (eventCompare !== 0) return eventCompare;
+
+      // Tertiary sort: by filename
+      return this.sortOrder === 'desc'
+        ? b.filename.localeCompare(a.filename)
+        : a.filename.localeCompare(b.filename);
+    });
+  }
+
+  /**
+   * Sort filtered items
+   */
+  sortFilteredItems() {
+    this.filteredItems.sort((a, b) => {
+      // Primary sort: by year
+      const yearCompare = this.sortOrder === 'desc'
+        ? b.year.localeCompare(a.year)
+        : a.year.localeCompare(b.year);
+
+      if (yearCompare !== 0) return yearCompare;
+
+      // Secondary sort: by event name
+      const eventCompare = this.sortOrder === 'desc'
+        ? b.event.localeCompare(a.event)
+        : a.event.localeCompare(b.event);
+
+      if (eventCompare !== 0) return eventCompare;
+
+      // Tertiary sort: by filename
+      return this.sortOrder === 'desc'
+        ? b.filename.localeCompare(a.filename)
+        : a.filename.localeCompare(b.filename);
+    });
+  }
+
+  /**
+   * Set sort order
+   */
+  setSortOrder(order) {
+    this.sortOrder = order;
+    this.sortItems();
+    this.applyFilters();
   }
 
   /**
