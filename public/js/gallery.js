@@ -190,7 +190,7 @@ class Gallery {
   }
 
   /**
-   * Sort items by year, event, and filename
+   * Sort items by year, event, and path
    */
   sortItems() {
     this.mediaItems.sort((a, b) => {
@@ -208,10 +208,10 @@ class Gallery {
 
       if (eventCompare !== 0) return eventCompare;
 
-      // Tertiary sort: by filename
+      // Tertiary sort: by path (includes subdirectories)
       return this.sortOrder === 'desc'
-        ? b.filename.localeCompare(a.filename)
-        : a.filename.localeCompare(b.filename);
+        ? b.path.localeCompare(a.path)
+        : a.path.localeCompare(b.path);
     });
   }
 
@@ -234,10 +234,10 @@ class Gallery {
 
       if (eventCompare !== 0) return eventCompare;
 
-      // Tertiary sort: by filename
+      // Tertiary sort: by path (includes subdirectories)
       return this.sortOrder === 'desc'
-        ? b.filename.localeCompare(a.filename)
-        : a.filename.localeCompare(b.filename);
+        ? b.path.localeCompare(a.path)
+        : a.path.localeCompare(b.path);
     });
   }
 
@@ -502,7 +502,10 @@ class Gallery {
         const year = item.dataset.year;
         const yearDivider = document.querySelector(`.year-divider[data-year="${year}"]`);
         if (yearDivider) {
-          yearDivider.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          const header = document.querySelector('.header');
+          const headerHeight = header ? header.offsetHeight : 0;
+          const targetPosition = yearDivider.offsetTop - headerHeight;
+          window.scrollTo({ top: targetPosition, behavior: 'smooth' });
         }
       });
     });
