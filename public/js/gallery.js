@@ -80,6 +80,7 @@ class Gallery {
       return;
     }
 
+    const yearCounts = this.getYearCounts();
     let currentYear = null;
     const html = this.filteredItems.map((item, index) => {
       const videoClass = item.type === 'video' ? 'video' : '';
@@ -88,7 +89,8 @@ class Gallery {
       let yearDivider = '';
       if (item.year !== currentYear) {
         currentYear = item.year;
-        yearDivider = `<div class="year-divider" data-year="${item.year}">${item.year}</div>`;
+        const count = yearCounts[item.year] || 0;
+        yearDivider = `<div class="year-divider" data-year="${item.year}">${item.year} <span class="year-count">(${count}件)</span></div>`;
       }
 
       return yearDivider + `
@@ -346,6 +348,17 @@ class Gallery {
     return Array.from(years).sort((a, b) =>
       this.sortOrder === 'desc' ? b.localeCompare(a) : a.localeCompare(b)
     );
+  }
+
+  /**
+   * Get year counts (number of items per year)
+   */
+  getYearCounts() {
+    const counts = {};
+    this.mediaItems.forEach(item => {
+      counts[item.year] = (counts[item.year] || 0) + 1;
+    });
+    return counts;
   }
 
   /**

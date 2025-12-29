@@ -125,6 +125,12 @@ body {
   padding-top: 0;
 }
 
+.year-divider .year-count {
+  font-size: 14px;
+  font-weight: 400;
+  color: #666;
+}
+
 /* Default size (medium) */
 .gallery-container,
 .gallery-container.size-medium {
