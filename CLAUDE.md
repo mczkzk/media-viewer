@@ -52,6 +52,8 @@ cp .env.example .env
 3. **Thumbnail Generator (lib/thumbnail.js)**:
    - On-demand thumbnail generation using `sharp`
    - 300x300px cached in `cache/thumbnails/`
+   - **Video thumbnails**: Uses `ffmpeg-static` + `fluent-ffmpeg` to extract frame at 1s
+   - Falls back to placeholder icon if frame extraction fails
 
 4. **HEIC Conversion**:
    - Uses macOS `sips` command (macOS only)
@@ -86,6 +88,11 @@ cp .env.example .env
   - Arrow key navigation
   - Uses `filteredItems` for navigation order
 
+- **Kana Converter (public/js/kana-converter.js)**:
+  - Multi-format search: converts queries to romaji/hiragana/katakana
+  - Pre-converts all searchable fields on load for performance
+  - Enables searching Japanese text with romaji input (e.g., "tokyo" matches "東京")
+
 ### Critical Implementation Details
 
 **Year Filter Behavior:**
@@ -105,6 +112,13 @@ cp .env.example .env
 - Intervals: if all years fit, show all; else thin out with step calculation
 - Scroll tracking highlights active year
 - Respects sort order (desc/asc)
+- Click year → updates URL hash (`#2025`) and scrolls to year divider
+
+**URL State Persistence:**
+- Query params: `?year=2025&q=tokyo` (hierarchical mode + search)
+- Hash: `#2025` (scroll position in flat mode)
+- State restored on page reload
+- `updateURL()` called on filter/search/mode changes
 
 **Security:**
 - `validatePath()` prevents directory traversal
@@ -116,6 +130,8 @@ Required in `.env`:
 - `MEDIA_BASE_PATH`: Absolute path to media directory
 - `PORT`: Server port (default: 9000)
 
-## macOS Dependency
+## Platform Dependencies
 
-HEIC/HEIF support requires macOS `sips` command. Will fail on other platforms.
+- **HEIC/HEIF**: Requires macOS `sips` command (will fail on other platforms)
+- **Video thumbnails**: Uses `ffmpeg-static` npm package (cross-platform, bundled binary)
+- **Search**: Japanese text search via kana-converter (no external dependencies)
