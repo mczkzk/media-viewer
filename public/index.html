@@ -103,6 +103,21 @@
 
         updateYearFilter();
 
+        // Restore state from URL
+        const urlState = gallery.restoreFromURL();
+        if (urlState.year) {
+          yearFilter.value = urlState.year;
+          gallery.switchToHierarchicalMode(urlState.year);
+        }
+        if (urlState.query) {
+          searchInput.value = urlState.query;
+          gallery.filterByEvent(urlState.query);
+        }
+        // Scroll to year from hash (for flat mode)
+        if (urlState.hash && !urlState.year) {
+          setTimeout(() => gallery.scrollToYear(urlState.hash), 100);
+        }
+
         // Update stats
         function updateStats() {
           const total = gallery.filteredItems.length;

@@ -201,6 +201,7 @@ class Gallery {
   filterByEvent(query) {
     this.searchQuery = query.toLowerCase();
     this.applyFilters();
+    this.updateURL();
   }
 
   /**
@@ -469,6 +470,7 @@ class Gallery {
     this.currentPath = [year]; // Start from year folder, showing event folders directly
     this.applyFilters();
     this.updateBreadcrumb();
+    this.updateURL();
 
     // Hide year index in hierarchical mode
     const yearIndex = document.getElementById('year-index');
@@ -486,6 +488,50 @@ class Gallery {
     this.currentPath = [];
     this.applyFilters();
     this.updateBreadcrumb();
+    this.updateURL();
+  }
+
+  /**
+   * Update URL with current state
+   */
+  updateURL() {
+    const params = new URLSearchParams();
+
+    if (this.selectedYear) {
+      params.set('year', this.selectedYear);
+    }
+
+    if (this.searchQuery) {
+      params.set('q', this.searchQuery);
+    }
+
+    const newURL = params.toString() ? `?${params.toString()}` : window.location.pathname;
+    window.history.replaceState({}, '', newURL);
+  }
+
+  /**
+   * Restore state from URL parameters
+   */
+  restoreFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    const year = params.get('year');
+    const query = params.get('q');
+    const hash = window.location.hash.replace('#', '');
+
+    return { year, query, hash };
+  }
+
+  /**
+   * Scroll to specific year
+   */
+  scrollToYear(year) {
+    const yearDivider = document.querySelector(`.year-divider[data-year="${year}"]`);
+    if (yearDivider) {
+      const header = document.querySelector('.header');
+      const headerHeight = header ? header.offsetHeight : 0;
+      const targetPosition = yearDivider.offsetTop - headerHeight;
+      window.scrollTo({ top: targetPosition, behavior: 'smooth' });
+    }
   }
 
   /**
@@ -581,13 +627,9 @@ class Gallery {
     yearIndex.querySelectorAll('.year-index-item').forEach(item => {
       item.addEventListener('click', () => {
         const year = item.dataset.year;
-        const yearDivider = document.querySelector(`.year-divider[data-year="${year}"]`);
-        if (yearDivider) {
-          const header = document.querySelector('.header');
-          const headerHeight = header ? header.offsetHeight : 0;
-          const targetPosition = yearDivider.offsetTop - headerHeight;
-          window.scrollTo({ top: targetPosition, behavior: 'smooth' });
-        }
+        // Update URL hash
+        window.location.hash = year;
+        this.scrollToYear(year);
       });
     });
 
