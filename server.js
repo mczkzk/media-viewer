@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs').promises;
 const { execSync } = require('child_process');
+const exifr = require('exifr');
 const scanner = require('./lib/scanner');
 const thumbnail = require('./lib/thumbnail');
 
@@ -108,6 +109,135 @@ app.get('/api/image', async (req, res) => {
   } catch (error) {
     console.error('Error serving image:', error);
     res.status(500).send('Failed to serve image');
+  }
+});
+
+// API: Get media file information
+app.get('/api/media-info', async (req, res) => {
+  try {
+    const requestedPath = req.query.path;
+    if (!requestedPath) {
+      return res.status(400).json({ error: 'Path is required' });
+    }
+
+    const fullPath = validatePath(requestedPath);
+    const stats = await fs.stat(fullPath);
+    const ext = path.extname(fullPath).toLowerCase();
+
+    const info = {
+      filename: path.basename(fullPath),
+      path: requestedPath,
+      size: stats.size,
+      modified: stats.mtime,
+      type: ['.mp4', '.mov', '.avi', '.m4v', '.mkv'].includes(ext) ? 'video' : 'image'
+    };
+
+    // Get image/video dimensions and EXIF data
+    if (info.type === 'image') {
+      try {
+        // For HEIC files, convert to JPEG first to read EXIF
+        let exifSourcePath = fullPath;
+        let tempJpegPath = null;
+
+        if (ext === '.heic' || ext === '.heif') {
+          const cacheDir = path.join(__dirname, 'cache', 'converted');
+          await fs.mkdir(cacheDir, { recursive: true });
+
+          const crypto = require('crypto');
+          const hash = crypto.createHash('md5').update(fullPath).digest('hex');
+          tempJpegPath = path.join(cacheDir, `${hash}.jpg`);
+
+          // Convert if not cached
+          try {
+            await fs.access(tempJpegPath);
+          } catch {
+            execSync(`sips -s format jpeg "${fullPath}" --out "${tempJpegPath}"`, {
+              stdio: 'ignore'
+            });
+          }
+
+          exifSourcePath = tempJpegPath;
+        }
+
+        // Get EXIF data
+        const exifData = await exifr.parse(exifSourcePath, {
+          pick: ['Make', 'Model', 'DateTimeOriginal', 'ExposureTime', 'FNumber',
+                 'ISO', 'FocalLength', 'LensModel',
+                 'ImageWidth', 'ImageHeight', 'PixelXDimension', 'PixelYDimension']
+        });
+
+        // Get GPS data separately
+        const gpsData = await exifr.gps(exifSourcePath);
+
+        if (exifData) {
+          info.exif = {
+            make: exifData.Make,
+            model: exifData.Model,
+            dateTime: exifData.DateTimeOriginal,
+            exposureTime: exifData.ExposureTime,
+            fNumber: exifData.FNumber,
+            iso: exifData.ISO,
+            focalLength: exifData.FocalLength,
+            lens: exifData.LensModel,
+            gps: (gpsData && gpsData.latitude && gpsData.longitude) ? {
+              latitude: gpsData.latitude,
+              longitude: gpsData.longitude
+            } : null
+          };
+
+          // Get dimensions from EXIF or image data
+          info.width = exifData.PixelXDimension || exifData.ImageWidth;
+          info.height = exifData.PixelYDimension || exifData.ImageHeight;
+        }
+
+        // If no EXIF dimensions, use sharp
+        if (!info.width || !info.height) {
+          const sharp = require('sharp');
+          const metadata = await sharp(exifSourcePath).metadata();
+          info.width = metadata.width;
+          info.height = metadata.height;
+        }
+
+        // Calculate megapixels
+        if (info.width && info.height) {
+          info.megapixels = ((info.width * info.height) / 1000000).toFixed(1);
+        }
+      } catch (exifError) {
+        console.error('Error reading EXIF:', exifError.message);
+      }
+    } else if (info.type === 'video') {
+      // Get video metadata using ffprobe (if available)
+      try {
+        const ffprobePath = require('@ffprobe-installer/ffprobe').path;
+        const ffmpeg = require('fluent-ffmpeg');
+        ffmpeg.setFfprobePath(ffprobePath);
+
+        const videoData = await new Promise((resolve, reject) => {
+          ffmpeg.ffprobe(fullPath, (err, metadata) => {
+            if (err) reject(err);
+            else resolve(metadata);
+          });
+        });
+
+        if (videoData && videoData.streams) {
+          const videoStream = videoData.streams.find(s => s.codec_type === 'video');
+          if (videoStream) {
+            info.width = videoStream.width;
+            info.height = videoStream.height;
+            info.duration = videoData.format.duration;
+            info.codec = videoStream.codec_name;
+            info.fps = eval(videoStream.r_frame_rate);
+          }
+        }
+      } catch (videoError) {
+        console.error('Error reading video metadata:', videoError.message);
+      }
+    }
+
+    res.json(info);
+  } catch (error) {
+    console.error('Error getting media info:', error);
+    res.status(500).json({ error: 'Failed to get media info' });
   }
 });
 

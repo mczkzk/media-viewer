@@ -258,20 +258,38 @@ body {
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.95);
   z-index: 1000;
-  align-items: center;
-  justify-content: center;
 }
 
 .lightbox-modal.active {
   display: flex;
+  flex-direction: row;
 }
 
 .lightbox-content {
-  max-width: 90vw;
-  max-height: 90vh;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: width 0.3s ease;
+  max-height: 100vh;
+  overflow: hidden;
+  width: 100%;
+}
+
+.lightbox-modal.info-open .lightbox-content {
+  width: calc(100% - 400px);
+}
+
+.lightbox-modal.info-open .lightbox-close {
+  right: 420px;
+}
+
+.lightbox-modal.info-open .lightbox-info-btn {
+  right: 480px;
+}
+
+.lightbox-modal.info-open .lightbox-next {
+  right: 420px;
 }
 
 .lightbox-content img,
@@ -291,26 +309,32 @@ body {
 .lightbox-prev,
 .lightbox-next {
   position: fixed;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(0, 0, 0, 0.3);
   color: white;
   border: none;
-  font-size: 36px;
-  padding: 12px 20px;
   cursor: pointer;
   z-index: 1001;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-.lightbox-close:hover,
-.lightbox-prev:hover,
-.lightbox-next:hover {
-  background-color: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  transition: right 0.3s ease;
 }
 
 .lightbox-close {
   top: 20px;
   right: 20px;
+  font-size: 28px;
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-prev,
+.lightbox-next {
+  font-size: 32px;
+  padding: 10px 16px;
+  border-radius: 4px;
 }
 
 .lightbox-prev {
@@ -347,6 +371,144 @@ body {
   white-space: nowrap;
 }
 
+/* Lightbox Info Button */
+.lightbox-info-btn {
+  position: fixed;
+  top: 20px;
+  right: 80px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 20px;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  z-index: 1001;
+  border-radius: 50%;
+  transition: right 0.3s ease, background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+}
+
+.lightbox-info-btn:hover {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+/* Info Panel */
+.lightbox-info-panel {
+  width: 0;
+  height: 100%;
+  background-color: #ffffff;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
+  transition: width 0.3s ease;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.lightbox-info-panel.active {
+  width: 400px;
+  overflow-y: auto;
+}
+
+.info-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f5f5f5;
+}
+
+.info-panel-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.info-panel-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.info-panel-close:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.info-panel-content {
+  padding: 20px;
+  color: #333;
+}
+
+.info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.info-icon {
+  font-size: 20px;
+  width: 28px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.info-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.info-label {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+  word-wrap: break-word;
+}
+
+.info-value {
+  font-size: 13px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.info-panel-content .loading,
+.info-panel-content .error {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+  font-size: 14px;
+}
+
+.info-map {
+  margin-top: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.info-map iframe {
+  display: block;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .gallery-container {
@@ -375,8 +537,25 @@ body {
   }
 
   .lightbox-close {
-    font-size: 28px;
-    padding: 6px 12px;
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .lightbox-info-btn {
+    right: 70px;
+    font-size: 18px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .lightbox-modal.info-open .lightbox-content {
+    margin-right: 0;
+    display: none;
+  }
+
+  .lightbox-info-panel.active {
+    width: 100%;
   }
 }
 
