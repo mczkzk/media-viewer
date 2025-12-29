@@ -21,6 +21,10 @@ class Gallery {
       }
 
       this.mediaItems = await response.json();
+
+      // Pre-convert all searchable fields to different formats for performance
+      this.preConvertSearchFields();
+
       this.sortItems();
       this.filteredItems = this.mediaItems;
       this.render();
@@ -28,6 +32,32 @@ class Gallery {
       console.error('Error loading media:', error);
       throw error;
     }
+  }
+
+  /**
+   * Pre-convert searchable fields to romaji, hiragana, and katakana for fast search
+   */
+  preConvertSearchFields() {
+    if (!window.KanaConverter) return;
+
+    const converter = window.KanaConverter;
+
+    this.mediaItems.forEach(item => {
+      // Pre-convert path (most important for subdirectory matching)
+      item._pathRomaji = converter.toRomaji(item.path).toLowerCase();
+      item._pathHiragana = converter.toHiragana(item.path);
+      item._pathKatakana = converter.toKatakana(item.path);
+
+      // Pre-convert event name
+      item._eventRomaji = converter.toRomaji(item.event).toLowerCase();
+      item._eventHiragana = converter.toHiragana(item.event);
+      item._eventKatakana = converter.toKatakana(item.event);
+
+      // Pre-convert filename
+      item._filenameRomaji = converter.toRomaji(item.filename).toLowerCase();
+      item._filenameHiragana = converter.toHiragana(item.filename);
+      item._filenameKatakana = converter.toKatakana(item.filename);
+    });
   }
 
   /**
@@ -179,14 +209,65 @@ class Gallery {
   applyFilters() {
     this.filteredItems = this.mediaItems.filter(item => {
       const matchesYear = !this.selectedYear || item.year === this.selectedYear;
-      const matchesSearch = !this.searchQuery ||
-        item.event.toLowerCase().includes(this.searchQuery) ||
-        item.filename.toLowerCase().includes(this.searchQuery);
+
+      if (!this.searchQuery) {
+        return matchesYear;
+      }
+
+      // Multi-format search: pass item object with pre-converted fields
+      const matchesSearch = this.multiFormatSearch(this.searchQuery, [item]);
+
       return matchesYear && matchesSearch;
     });
 
     this.sortFilteredItems();
     this.render();
+  }
+
+  /**
+   * Search across multiple formats (romaji, hiragana, katakana)
+   * Uses pre-converted fields for performance
+   */
+  multiFormatSearch(query, targets) {
+    if (!window.KanaConverter) {
+      // Fallback to simple search if converter not available
+      return targets.some(target =>
+        target.toLowerCase().includes(query.toLowerCase())
+      );
+    }
+
+    const converter = window.KanaConverter;
+
+    // Generate search variants from query (only convert query, not targets)
+    const queryLower = query.toLowerCase();
+    const queryRomaji = converter.toRomaji(query).toLowerCase();
+    const queryHiragana = converter.toHiragana(query);
+    const queryKatakana = converter.toKatakana(query);
+
+    // Check against pre-converted fields (passed as item object)
+    const item = targets[0]; // Expecting item object, not array of strings
+
+    // Direct match in original text
+    if (item.event.toLowerCase().includes(queryLower)) return true;
+    if (item.filename.toLowerCase().includes(queryLower)) return true;
+    if (item.path.toLowerCase().includes(queryLower)) return true;
+
+    // Match in romaji
+    if (item._pathRomaji && item._pathRomaji.includes(queryRomaji)) return true;
+    if (item._eventRomaji && item._eventRomaji.includes(queryRomaji)) return true;
+    if (item._filenameRomaji && item._filenameRomaji.includes(queryRomaji)) return true;
+
+    // Match in hiragana
+    if (item._pathHiragana && item._pathHiragana.includes(queryHiragana)) return true;
+    if (item._eventHiragana && item._eventHiragana.includes(queryHiragana)) return true;
+    if (item._filenameHiragana && item._filenameHiragana.includes(queryHiragana)) return true;
+
+    // Match in katakana
+    if (item._pathKatakana && item._pathKatakana.includes(queryKatakana)) return true;
+    if (item._eventKatakana && item._eventKatakana.includes(queryKatakana)) return true;
+    if (item._filenameKatakana && item._filenameKatakana.includes(queryKatakana)) return true;
+
+    return false;
   }
 
   /**
