@@ -234,6 +234,17 @@ body {
   white-space: nowrap;
 }
 
+/* Caption size variations */
+.gallery-container.size-small .caption {
+  font-size: 10px;
+  padding: 6px;
+}
+
+.gallery-container.size-large .caption {
+  font-size: 14px;
+  padding: 10px;
+}
+
 /* Loading and Error messages (for gallery container) */
 .gallery-container > .loading-message,
 .gallery-container > .error-message {

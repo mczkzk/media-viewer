@@ -100,7 +100,7 @@ class Gallery {
                loading="lazy"
                onload="this.parentElement.classList.remove('loading')"
                onerror="this.parentElement.classList.add('error')">
-          <div class="caption">${item.event}</div>
+          <div class="caption">${this.getDisplayCaption(item)}</div>
         </div>
       `;
     }).join('');
@@ -160,9 +160,23 @@ class Gallery {
              loading="lazy"
              onload="this.parentElement.classList.remove('loading')"
              onerror="this.parentElement.classList.add('error')">
-        <div class="caption">${item.event}</div>
+        <div class="caption">${this.getDisplayCaption(item)}</div>
       </div>
     `;
+  }
+
+  /**
+   * Get display caption (use deepest folder name if available)
+   */
+  getDisplayCaption(item) {
+    const pathParts = item.path.split('/');
+    // If file is in a subdirectory (more than 2 parts: year/event/file)
+    if (pathParts.length > 2) {
+      // Return the parent folder name (e.g., "Canada" from "2013/2013-05-14_RTW/Canada/photo.jpg")
+      return pathParts[pathParts.length - 2];
+    }
+    // Otherwise use event name
+    return item.event;
   }
 
   /**
