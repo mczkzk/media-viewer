@@ -17,6 +17,13 @@ cache/
 *.m4v
 *.mkv
 
+# Allow Tauri icon files
+!src-tauri/icons/**
+
+# Rust build output
+src-tauri/target/
+src-tauri/gen/
+
 # macOS
 .DS_Store
 .AppleDouble

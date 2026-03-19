@@ -69,12 +69,22 @@
   </div>
 
   <!-- Scripts -->
+  <script src="/js/tauri-app.js"></script>
   <script src="/js/kana-converter.js"></script>
   <script src="/js/gallery.js"></script>
   <script src="/js/lightbox.js"></script>
   <script>
     // Initialize app
     document.addEventListener('DOMContentLoaded', async () => {
+      // Initialize Tauri if running as desktop app
+      const tauriApp = new TauriApp();
+      await tauriApp.init();
+
+      if (tauriApp.isTauri && !tauriApp.mediaBasePath) {
+        document.getElementById('gallery').innerHTML =
+          '<div class="error-message">メディアフォルダが選択されていません。アプリを再起動してください。</div>';
+        return;
+      }
       try {
         // Create gallery instance
         const galleryContainer = document.getElementById('gallery');
