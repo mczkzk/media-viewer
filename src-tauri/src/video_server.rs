@@ -5,21 +5,7 @@ use std::thread;
 
 use tiny_http::{Header, Response, Server, StatusCode};
 
-use crate::thumbnail;
-
-fn mime_for_ext(ext: &str) -> &'static str {
-    match ext.to_lowercase().as_str() {
-        "jpg" | "jpeg" => "image/jpeg",
-        "png" => "image/png",
-        "gif" => "image/gif",
-        "mp4" => "video/mp4",
-        "mov" => "video/quicktime",
-        "avi" => "video/x-msvideo",
-        "m4v" => "video/x-m4v",
-        "mkv" => "video/x-matroska",
-        _ => "application/octet-stream",
-    }
-}
+use crate::{mime_for_ext, thumbnail};
 
 /// Start a local HTTP server for video streaming. Returns the port.
 pub fn start() -> u16 {

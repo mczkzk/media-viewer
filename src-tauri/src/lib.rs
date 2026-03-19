@@ -108,7 +108,7 @@ async fn get_video_server_port(state: tauri::State<'_, VideoServerPort>) -> Resu
 
 struct VideoServerPort(u16);
 
-fn mime_for_ext(ext: &str) -> &'static str {
+pub fn mime_for_ext(ext: &str) -> &'static str {
     match ext.to_lowercase().as_str() {
         "jpg" | "jpeg" => "image/jpeg",
         "png" => "image/png",
