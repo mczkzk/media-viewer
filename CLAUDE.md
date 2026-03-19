@@ -4,60 +4,61 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-**Start server:**
+**Start dev (Tauri + hot reload):**
 ```bash
-node server.js
+npm run tauri:dev
 ```
-Server runs on `http://localhost:9000` (configurable via `.env`)
 
-**Stop server:**
+**Build app:**
 ```bash
-Ctrl + C
-# or
-lsof -ti :9000 | xargs kill -9
+npm run tauri:build
+```
+
+**Run Rust tests:**
+```bash
+cd src-tauri && cargo test
 ```
 
 **Clear cache (troubleshooting):**
 ```bash
-rm -rf cache/thumbnails/*
-rm -f cache/index.json
+rm ~/Library/Application\ Support/com.mediaviewer.app/cache/thumbnails/*.jpg
+rm ~/Library/Application\ Support/com.mediaviewer.app/cache/index.json
 ```
 
 **Setup:**
 ```bash
 npm install
-cp .env.example .env
-# Edit .env to set MEDIA_BASE_PATH
 ```
 
 ## Architecture Overview
 
 ### Data Flow Architecture
 
-**Scan → Cache → API → Frontend**
+**Tauri WebView (Frontend) → IPC → Rust Backend → Local Files**
 
-1. **Backend (server.js)**:
-   - Express server serving static files + API endpoints
-   - Validates paths to prevent directory traversal attacks
-   - Serves thumbnails, full images, and media index
+1. **Rust Backend (src-tauri/src/lib.rs)**:
+   - Tauri v2 commands: scan_media, get_thumbnail, batch_ensure_thumbnails, get_media_info
+   - Custom `media://` protocol for file serving (images, videos, thumbnails)
+   - Range requests support for video streaming (4MB chunks)
+   - HEIC auto-conversion via macOS `sips`, cached in AppData
+   - `plugin-store` for persisting mediaBasePath, `plugin-dialog` for folder selection
 
-2. **Scanner (lib/scanner.js)**:
-   - Scans `MEDIA_BASE_PATH` recursively for images/videos
-   - Returns flat array: `{path, year, event, filename, type, mtime}`
-   - Caches results in `cache/index.json` (24h TTL)
-   - **Expected directory structure**: `YEAR/EVENT/...files`
-     - Example: `2020/2020-06/photo.jpg`
-     - Supports nested subdirectories within events
+2. **Scanner (src-tauri/src/scanner.rs)**:
+   - `walkdir` crate scans `YEAR/EVENT/...files` structure recursively
+   - Returns `Vec<MediaItem>`: `{path, year, event, filename, type, mtime}`
+   - Caches results in `AppData/cache/index.json` (24h TTL)
+   - Skips hidden files and non-media extensions
 
-3. **Thumbnail Generator (lib/thumbnail.js)**:
-   - On-demand thumbnail generation using `sharp`
-   - 300x300px cached in `cache/thumbnails/`
-   - **Video thumbnails**: Uses `ffmpeg-static` + `fluent-ffmpeg` to extract frame at 1s
-   - Falls back to placeholder icon if frame extraction fails
+3. **Thumbnail Generator (src-tauri/src/thumbnail.rs)**:
+   - `image` crate for 300x300px cover-crop thumbnails with EXIF orientation
+   - HEIC: `sips` conversion to temp JPEG, then resize
+   - Video: `ffmpeg` (from node_modules/ffmpeg-static or system) extracts frame at 1s
+   - Falls back to placeholder on failure (prevents retry loops)
+   - MD5 hash of relative path as cache filename
 
-4. **HEIC Conversion**:
-   - Uses macOS `sips` command (macOS only)
-   - Converts to JPEG on-demand, cached in `cache/converted/`
+4. **Media Info (src-tauri/src/thumbnail.rs::get_media_info)**:
+   - `kamadak-exif` for EXIF data (camera, lens, GPS, settings)
+   - `ffprobe` for video metadata (duration, codec, fps)
 
 ### Frontend Architecture (Vanilla JS)
 
@@ -75,6 +76,12 @@ cp .env.example .env
    - Click title to return to flat mode
 
 **Key Components:**
+
+- **TauriApp (public/js/tauri-app.js)**:
+  - Detects Tauri environment via `window.__TAURI__`
+  - JS-side MD5 hash for thumbnail URLs (no IPC needed for cached thumbnails)
+  - Batch thumbnail generation for cache misses
+  - `media://` URL construction for images and videos
 
 - **Gallery (public/js/gallery.js)**:
   - Two render modes: `renderFlat()` and `renderHierarchical()`
@@ -120,18 +127,15 @@ cp .env.example .env
 - State restored on page reload
 - `updateURL()` called on filter/search/mode changes
 
-**Security:**
-- `validatePath()` prevents directory traversal
-- All file access validated against `MEDIA_BASE_PATH`
-
-## Environment Variables
-
-Required in `.env`:
-- `MEDIA_BASE_PATH`: Absolute path to media directory
-- `PORT`: Server port (default: 9000)
+**Thumbnail Loading (Tauri mode):**
+- Frontend calculates MD5 hash of relative path → constructs `media://` URL to cache file
+- Browser loads cached thumbnail directly (no IPC)
+- On 404 (cache miss): `onerror` handler batches paths, calls `batch_ensure_thumbnails` IPC
+- After generation, retries with cache-busted URL
 
 ## Platform Dependencies
 
-- **HEIC/HEIF**: Requires macOS `sips` command (will fail on other platforms)
-- **Video thumbnails**: Uses `ffmpeg-static` npm package (cross-platform, bundled binary)
-- **Search**: Japanese text search via kana-converter (no external dependencies)
+- **macOS** required (uses `sips` for HEIC conversion)
+- **ffmpeg/ffprobe**: Bundled via npm (`ffmpeg-static`, `@ffprobe-installer/ffprobe`) for dev; system install needed for built app
+- **Rust** 1.77.2+
+- **Node.js** 18+ (for Tauri CLI and npm dependencies)

@@ -139,8 +139,7 @@ media-viewer/
 ├── docs/
 │   ├── tauri-migration-plan.md
 │   └── tauri-implementation-notes.md
-├── server.js                  # 旧Node.js版 (レガシー)
-└── lib/                       # 旧Node.js版 (レガシー)
+└── package.json
 ```
 
 ## パフォーマンス
@@ -192,13 +191,6 @@ which sips  # 通常は /usr/bin/sips
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
-```
-
-## 旧Node.js版
-
-旧Node.js + Express版はタグ `v1.0-node` で保存:
-```bash
-git checkout v1.0-node
 ```
 
 ## ライセンス
