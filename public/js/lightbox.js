@@ -64,25 +64,26 @@ class Lightbox {
   /**
    * Show lightbox with item at index
    */
-  show(index) {
+  async show(index) {
     this.currentIndex = index;
     const item = this.gallery.getItem(index);
 
     if (!item) return;
 
     // Clear content
-    this.content.innerHTML = '';
+    this.content.innerHTML = '<div class="loading">読み込み中...</div>';
 
     // Create appropriate element
+    const mediaUrl = await this.gallery.getMediaUrl(item);
+    this.content.innerHTML = '';
     if (item.type === 'image') {
       const img = document.createElement('img');
-      // Use /api/image for HEIC conversion support
-      img.src = `/api/image?path=${encodeURIComponent(item.path)}`;
+      img.src = mediaUrl;
       img.alt = item.filename;
       this.content.appendChild(img);
     } else if (item.type === 'video') {
       const video = document.createElement('video');
-      video.src = `/media/${item.path}`;
+      video.src = mediaUrl;
       video.controls = true;
       video.autoplay = true;
       this.content.appendChild(video);

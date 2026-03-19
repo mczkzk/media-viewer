@@ -10,11 +10,9 @@ class TauriApp {
   async init() {
     if (!this.isTauri) return;
 
-    // Load stored path
     this.mediaBasePath = await this.getStoredPath();
 
     if (!this.mediaBasePath) {
-      // First launch: show folder selection
       this.mediaBasePath = await this.selectFolder();
     }
   }
@@ -61,7 +59,34 @@ class TauriApp {
       location.reload();
     }
   }
+
+  async scanMedia() {
+    return await window.__TAURI__.core.invoke('scan_media', {
+      basePath: this.mediaBasePath
+    });
+  }
+
+  async forceScan() {
+    return await window.__TAURI__.core.invoke('force_scan', {
+      basePath: this.mediaBasePath
+    });
+  }
+
+  // Get thumbnail as base64 data URL via Rust command
+  async getThumbnail(relativePath) {
+    return await window.__TAURI__.core.invoke('get_thumbnail', {
+      path: relativePath,
+      basePath: this.mediaBasePath
+    });
+  }
+
+  // Get full-size media file as base64 data URL via Rust command
+  async getMediaFile(relativePath) {
+    return await window.__TAURI__.core.invoke('get_media_file', {
+      path: relativePath,
+      basePath: this.mediaBasePath
+    });
+  }
 }
 
-// Expose globally
 window.TauriApp = TauriApp;

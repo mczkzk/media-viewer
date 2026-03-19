@@ -1,6 +1,7 @@
 class Gallery {
-  constructor(container) {
+  constructor(container, tauriApp) {
     this.container = container;
+    this.tauriApp = tauriApp || null;
     this.mediaItems = [];
     this.filteredItems = [];
     this.selectedYear = '';
@@ -15,12 +16,18 @@ class Gallery {
    */
   async load() {
     try {
-      const response = await fetch('/api/media');
-      if (!response.ok) {
-        throw new Error('Failed to fetch media data');
+      let data;
+      if (this.tauriApp && this.tauriApp.isTauri) {
+        data = await this.tauriApp.scanMedia();
+      } else {
+        const response = await fetch('/api/media');
+        if (!response.ok) {
+          throw new Error('Failed to fetch media data');
+        }
+        data = await response.json();
       }
 
-      this.mediaItems = await response.json();
+      this.mediaItems = data;
 
       // Pre-convert all searchable fields to different formats for performance
       this.preConvertSearchFields();
@@ -93,13 +100,17 @@ class Gallery {
         yearDivider = `<div class="year-divider" data-year="${item.year}">${item.year} <span class="year-count">(${count}件)</span></div>`;
       }
 
+      const isTauri = this.tauriApp && this.tauriApp.isTauri;
+      const thumbSrc = isTauri ? '' : this.getThumbnailUrl(item);
+      const srcAttr = thumbSrc ? `src="${thumbSrc}"` : '';
       return yearDivider + `
         <div class="grid-item ${videoClass} loading" data-index="${index}">
-          <img src="/api/thumbnail?path=${encodeURIComponent(item.path)}"
+          <img ${srcAttr}
+               data-path="${item.path}"
                alt="${item.filename}"
                loading="lazy"
-               onload="this.parentElement.classList.remove('loading')"
-               onerror="this.parentElement.classList.add('error')">
+               onload="this.parentElement.classList.remove('loading');this.parentElement.classList.remove('error')"
+               onerror="if(this.src){this.parentElement.classList.add('error');this.parentElement.classList.remove('loading')}">
           <div class="caption">${this.getDisplayCaption(item)}</div>
         </div>
       `;
@@ -108,6 +119,7 @@ class Gallery {
     this.container.innerHTML = html;
     this.attachClickHandlers();
     this.updateYearIndex();
+    this.loadTauriThumbnails();
   }
 
   /**
@@ -133,6 +145,7 @@ class Gallery {
 
     this.container.innerHTML = html;
     this.attachClickHandlers();
+    this.loadTauriThumbnails();
   }
 
   /**
@@ -153,16 +166,78 @@ class Gallery {
    */
   renderMediaCard(item, index) {
     const videoClass = item.type === 'video' ? 'video' : '';
+    const isTauri = this.tauriApp && this.tauriApp.isTauri;
+    const thumbSrc = isTauri ? '' : this.getThumbnailUrl(item);
+    const srcAttr = thumbSrc ? `src="${thumbSrc}"` : '';
     return `
       <div class="grid-item ${videoClass} loading" data-index="${index}">
-        <img src="/api/thumbnail?path=${encodeURIComponent(item.path)}"
+        <img ${srcAttr}
+             data-path="${item.path}"
              alt="${item.filename}"
              loading="lazy"
-             onload="this.parentElement.classList.remove('loading')"
-             onerror="this.parentElement.classList.add('error')">
+             onload="this.parentElement.classList.remove('loading');this.parentElement.classList.remove('error')"
+             onerror="if(this.src){this.parentElement.classList.add('error');this.parentElement.classList.remove('loading')}">
         <div class="caption">${this.getDisplayCaption(item)}</div>
       </div>
     `;
+  }
+
+  /**
+   * Get thumbnail URL for a media item (sync, returns URL or empty string for Tauri)
+   */
+  getThumbnailUrl(item) {
+    if (this.tauriApp && this.tauriApp.isTauri) {
+      return ''; // Will be loaded async
+    }
+    return `/api/thumbnail?path=${encodeURIComponent(item.path)}`;
+  }
+
+  /**
+   * Load thumbnails asynchronously for Tauri mode using IntersectionObserver
+   */
+  loadTauriThumbnails() {
+    if (!this.tauriApp || !this.tauriApp.isTauri) return;
+
+    // Clean up previous observer
+    if (this._thumbObserver) {
+      this._thumbObserver.disconnect();
+    }
+
+    this._thumbObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+
+        const img = entry.target;
+        const path = img.dataset.path;
+        if (!path || img.dataset.loading) return;
+
+        img.dataset.loading = 'true';
+        this._thumbObserver.unobserve(img);
+
+        this.tauriApp.getThumbnail(path).then(dataUrl => {
+          img.src = dataUrl;
+        }).catch(() => {
+          img.parentElement.classList.add('error');
+          img.parentElement.classList.remove('loading');
+        });
+      });
+    }, { rootMargin: '200px' }); // Pre-load 200px ahead of viewport
+
+    const images = this.container.querySelectorAll('img[data-path]');
+    images.forEach(img => this._thumbObserver.observe(img));
+  }
+
+  /**
+   * Get full media URL or data URL for a media item
+   */
+  async getMediaUrl(item) {
+    if (this.tauriApp && this.tauriApp.isTauri) {
+      return await this.tauriApp.getMediaFile(item.path);
+    }
+    if (item.type === 'video') {
+      return `/media/${item.path}`;
+    }
+    return `/api/image?path=${encodeURIComponent(item.path)}`;
   }
 
   /**

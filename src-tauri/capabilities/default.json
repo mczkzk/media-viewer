@@ -6,6 +6,15 @@
   "permissions": [
     "core:default",
     "dialog:allow-open",
-    "store:default"
+    "store:default",
+    "fs:default",
+    "fs:allow-read",
+    "fs:allow-exists",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "**" }
+      ]
+    }
   ]
 }

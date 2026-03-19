@@ -88,7 +88,7 @@
       try {
         // Create gallery instance
         const galleryContainer = document.getElementById('gallery');
-        const gallery = new Gallery(galleryContainer);
+        const gallery = new Gallery(galleryContainer, tauriApp);
 
         // Load media data
         await gallery.load();
@@ -197,10 +197,11 @@
           statsText.textContent = '再スキャン中...';
 
           try {
-            const response = await fetch('/api/scan');
-            const result = await response.json();
-
-            // Reload page to refresh gallery
+            if (tauriApp.isTauri) {
+              await tauriApp.forceScan();
+            } else {
+              await fetch('/api/scan');
+            }
             location.reload();
           } catch (error) {
             console.error('Rescan failed:', error);
