@@ -393,56 +393,19 @@ class Gallery {
     return false;
   }
 
-  /**
-   * Sort items by year, event, and path
-   */
-  sortItems() {
-    this.mediaItems.sort((a, b) => {
-      // Primary sort: by year
-      const yearCompare = this.sortOrder === 'desc'
-        ? b.year.localeCompare(a.year)
-        : a.year.localeCompare(b.year);
-
-      if (yearCompare !== 0) return yearCompare;
-
-      // Secondary sort: by event name
-      const eventCompare = this.sortOrder === 'desc'
-        ? b.event.localeCompare(a.event)
-        : a.event.localeCompare(b.event);
-
-      if (eventCompare !== 0) return eventCompare;
-
-      // Tertiary sort: by path (includes subdirectories)
-      return this.sortOrder === 'desc'
-        ? b.path.localeCompare(a.path)
-        : a.path.localeCompare(b.path);
-    });
+  _compareItems(a, b) {
+    const dir = this.sortOrder === 'desc' ? -1 : 1;
+    return (a.year.localeCompare(b.year) * dir)
+      || (a.event.localeCompare(b.event) * dir)
+      || (a.path.localeCompare(b.path) * dir);
   }
 
-  /**
-   * Sort filtered items
-   */
+  sortItems() {
+    this.mediaItems.sort((a, b) => this._compareItems(a, b));
+  }
+
   sortFilteredItems() {
-    this.filteredItems.sort((a, b) => {
-      // Primary sort: by year
-      const yearCompare = this.sortOrder === 'desc'
-        ? b.year.localeCompare(a.year)
-        : a.year.localeCompare(b.year);
-
-      if (yearCompare !== 0) return yearCompare;
-
-      // Secondary sort: by event name
-      const eventCompare = this.sortOrder === 'desc'
-        ? b.event.localeCompare(a.event)
-        : a.event.localeCompare(b.event);
-
-      if (eventCompare !== 0) return eventCompare;
-
-      // Tertiary sort: by path (includes subdirectories)
-      return this.sortOrder === 'desc'
-        ? b.path.localeCompare(a.path)
-        : a.path.localeCompare(b.path);
-    });
+    this.filteredItems.sort((a, b) => this._compareItems(a, b));
   }
 
   /**
