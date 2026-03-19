@@ -3,7 +3,6 @@ mod thumbnail;
 mod video_server;
 
 use std::path::PathBuf;
-use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_fs::FsExt;
 use tauri_plugin_store::StoreExt;

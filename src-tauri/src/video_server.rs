@@ -1,6 +1,6 @@
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::thread;
 
 use tiny_http::{Header, Response, Server, StatusCode};
