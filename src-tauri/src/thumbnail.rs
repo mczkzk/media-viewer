@@ -123,30 +123,26 @@ fn generate_video_thumbnail(video_path: &Path, cache_path: &Path) -> Result<(), 
     Ok(())
 }
 
-/// Find ffmpeg binary (bundled via npm or system)
-fn which_ffmpeg() -> Option<String> {
+/// Find a binary by checking npm path, well-known paths, then $PATH
+fn find_binary(name: &str, npm_subpath: &str, well_known: &[&str]) -> Option<String> {
     let npm_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap_or(Path::new("."))
         .join("node_modules")
-        .join("ffmpeg-static")
-        .join("ffmpeg");
+        .join(npm_subpath)
+        .join(name);
     if npm_path.exists() {
         return npm_path.to_str().map(String::from);
     }
 
-    for path in &[
-        "/opt/homebrew/bin/ffmpeg",
-        "/usr/local/bin/ffmpeg",
-        "/usr/bin/ffmpeg",
-    ] {
+    for path in well_known {
         if Path::new(path).exists() {
             return Some(path.to_string());
         }
     }
 
     Command::new("which")
-        .arg("ffmpeg")
+        .arg(name)
         .output()
         .ok()
         .filter(|o| o.status.success())
@@ -154,35 +150,20 @@ fn which_ffmpeg() -> Option<String> {
         .map(|s| s.trim().to_string())
 }
 
-/// Find ffprobe binary
-fn which_ffprobe() -> Option<String> {
-    let npm_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap_or(Path::new("."))
-        .join("node_modules")
-        .join("@ffprobe-installer")
-        .join("ffprobe");
-    if npm_path.exists() {
-        return npm_path.to_str().map(String::from);
-    }
+fn which_ffmpeg() -> Option<String> {
+    find_binary("ffmpeg", "ffmpeg-static", &[
+        "/opt/homebrew/bin/ffmpeg",
+        "/usr/local/bin/ffmpeg",
+        "/usr/bin/ffmpeg",
+    ])
+}
 
-    for path in &[
+fn which_ffprobe() -> Option<String> {
+    find_binary("ffprobe", "@ffprobe-installer", &[
         "/opt/homebrew/bin/ffprobe",
         "/usr/local/bin/ffprobe",
         "/usr/bin/ffprobe",
-    ] {
-        if Path::new(path).exists() {
-            return Some(path.to_string());
-        }
-    }
-
-    Command::new("which")
-        .arg("ffprobe")
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| s.trim().to_string())
+    ])
 }
 
 /// Generate a video placeholder as JPEG
