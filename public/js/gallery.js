@@ -100,12 +100,10 @@ class Gallery {
         yearDivider = `<div class="year-divider" data-year="${item.year}">${item.year} <span class="year-count">(${count}件)</span></div>`;
       }
 
-      const isTauri = this.tauriApp && this.tauriApp.isTauri;
-      const thumbSrc = isTauri ? '' : this.getThumbnailUrl(item);
-      const srcAttr = thumbSrc ? `src="${thumbSrc}"` : '';
+      const thumbSrc = this.getThumbnailUrl(item);
       return yearDivider + `
         <div class="grid-item ${videoClass} loading" data-index="${index}">
-          <img ${srcAttr}
+          <img src="${thumbSrc}"
                data-path="${item.path}"
                alt="${item.filename}"
                loading="lazy"
@@ -166,12 +164,10 @@ class Gallery {
    */
   renderMediaCard(item, index) {
     const videoClass = item.type === 'video' ? 'video' : '';
-    const isTauri = this.tauriApp && this.tauriApp.isTauri;
-    const thumbSrc = isTauri ? '' : this.getThumbnailUrl(item);
-    const srcAttr = thumbSrc ? `src="${thumbSrc}"` : '';
+    const thumbSrc = this.getThumbnailUrl(item);
     return `
       <div class="grid-item ${videoClass} loading" data-index="${index}">
-        <img ${srcAttr}
+        <img src="${thumbSrc}"
              data-path="${item.path}"
              alt="${item.filename}"
              loading="lazy"
@@ -183,56 +179,78 @@ class Gallery {
   }
 
   /**
-   * Get thumbnail URL for a media item (sync, returns URL or empty string for Tauri)
+   * Get thumbnail URL for a media item
    */
   getThumbnailUrl(item) {
     if (this.tauriApp && this.tauriApp.isTauri) {
-      return ''; // Will be loaded async
+      // Direct URL to cached thumbnail (no IPC needed)
+      return this.tauriApp.thumbnailUrl(item.path);
     }
     return `/api/thumbnail?path=${encodeURIComponent(item.path)}`;
   }
 
   /**
-   * Load thumbnails asynchronously for Tauri mode using IntersectionObserver
+   * Load thumbnails for Tauri mode.
+   * Cached thumbnails are loaded directly by the browser (src is already set).
+   * Uncached ones (onerror/404) are batch-generated then retried.
    */
   loadTauriThumbnails() {
     if (!this.tauriApp || !this.tauriApp.isTauri) return;
 
-    // Clean up previous observer
-    if (this._thumbObserver) {
-      this._thumbObserver.disconnect();
-    }
+    // Collect images that fail to load (not yet cached)
+    let pendingBatch = [];
+    let batchTimer = null;
 
-    this._thumbObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (!entry.isIntersecting) return;
+    const scheduleBatch = () => {
+      if (batchTimer) return;
+      batchTimer = setTimeout(() => {
+        batchTimer = null;
+        processBatch();
+      }, 200); // Batch every 200ms
+    };
 
-        const img = entry.target;
-        const path = img.dataset.path;
-        if (!path || img.dataset.loading) return;
+    const processBatch = () => {
+      if (pendingBatch.length === 0) return;
 
-        img.dataset.loading = 'true';
-        this._thumbObserver.unobserve(img);
+      // Take visible items first
+      const batch = pendingBatch.splice(0, 20);
+      const paths = batch.map(img => img.dataset.path);
 
-        this.tauriApp.getThumbnail(path).then(dataUrl => {
-          img.src = dataUrl;
-        }).catch(() => {
-          img.parentElement.classList.add('error');
-          img.parentElement.classList.remove('loading');
+      this.tauriApp.batchEnsureThumbnails(paths).then(results => {
+        batch.forEach((img, i) => {
+          if (results[i]) {
+            // Re-trigger load with cache-busted URL
+            img.src = this.tauriApp.thumbnailUrl(img.dataset.path) + '?t=' + Date.now();
+          }
         });
+        // Process remaining
+        if (pendingBatch.length > 0) scheduleBatch();
       });
-    }, { rootMargin: '200px' }); // Pre-load 200px ahead of viewport
+    };
 
-    const images = this.container.querySelectorAll('img[data-path]');
-    images.forEach(img => this._thumbObserver.observe(img));
+    // Override onerror for all thumbnail images to batch-generate
+    this.container.querySelectorAll('img[data-path]').forEach(img => {
+      const originalOnerror = img.onerror;
+      img.onerror = function() {
+        if (this.dataset.retried) {
+          // Already retried, give up
+          this.parentElement.classList.add('error');
+          this.parentElement.classList.remove('loading');
+          return;
+        }
+        this.dataset.retried = 'true';
+        pendingBatch.push(this);
+        scheduleBatch();
+      };
+    });
   }
 
   /**
-   * Get full media URL or data URL for a media item
+   * Get full media URL for a media item
    */
-  async getMediaUrl(item) {
+  getMediaUrl(item) {
     if (this.tauriApp && this.tauriApp.isTauri) {
-      return await this.tauriApp.getMediaFile(item.path);
+      return this.tauriApp.mediaUrl(item.path);
     }
     if (item.type === 'video') {
       return `/media/${item.path}`;

@@ -1,6 +1,7 @@
 mod scanner;
 mod thumbnail;
 
+use std::path::PathBuf;
 use tauri::Manager;
 use tauri_plugin_fs::FsExt;
 use tauri_plugin_store::StoreExt;
@@ -64,12 +65,54 @@ async fn get_thumbnail(
 ) -> Result<String, String> {
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let cache_dir = app_data_dir.join("cache").join("thumbnails");
-    thumbnail::get_thumbnail_base64(&path, &base_path, &cache_dir)
+    thumbnail::ensure_thumbnail(&path, &base_path, &cache_dir)
 }
 
 #[tauri::command]
-async fn get_media_file(path: String, base_path: String) -> Result<String, String> {
-    thumbnail::read_media_base64(&path, &base_path)
+async fn get_thumbnail_cache_dir(app: tauri::AppHandle) -> Result<String, String> {
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let cache_dir = app_data_dir.join("cache").join("thumbnails");
+    std::fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
+    Ok(cache_dir.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn batch_ensure_thumbnails(
+    app: tauri::AppHandle,
+    paths: Vec<String>,
+    base_path: String,
+) -> Result<Vec<bool>, String> {
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let cache_dir = app_data_dir.join("cache").join("thumbnails");
+    std::fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
+
+    let results: Vec<bool> = paths
+        .iter()
+        .map(|p| thumbnail::ensure_thumbnail(p, &base_path, &cache_dir).is_ok())
+        .collect();
+
+    Ok(results)
+}
+
+#[tauri::command]
+async fn get_media_info(path: String, base_path: String) -> Result<serde_json::Value, String> {
+    let full_path = PathBuf::from(&base_path).join(&path);
+    thumbnail::get_media_info(&full_path)
+}
+
+fn mime_for_ext(ext: &str) -> &'static str {
+    match ext.to_lowercase().as_str() {
+        "jpg" | "jpeg" => "image/jpeg",
+        "png" => "image/png",
+        "gif" => "image/gif",
+        "heic" | "heif" => "image/jpeg", // served as converted JPEG
+        "mp4" => "video/mp4",
+        "mov" => "video/quicktime",
+        "avi" => "video/x-msvideo",
+        "m4v" => "video/x-m4v",
+        "mkv" => "video/x-matroska",
+        _ => "application/octet-stream",
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -78,6 +121,122 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .register_uri_scheme_protocol("media", move |_ctx, request| {
+            use std::io::{Read, Seek, SeekFrom};
+
+            let uri = request.uri().to_string();
+            // Strip scheme + host prefix, and remove query string if present
+            let path_part = uri
+                .strip_prefix("media://localhost/")
+                .or_else(|| uri.strip_prefix("media://localhost"))
+                .unwrap_or("");
+            let path_part = path_part.split('?').next().unwrap_or(path_part);
+
+            let decoded = percent_encoding::percent_decode_str(path_part)
+                .decode_utf8_lossy()
+                .to_string();
+
+            let file_path = PathBuf::from("/").join(&decoded);
+
+            if !file_path.exists() {
+                return tauri::http::Response::builder()
+                    .status(404)
+                    .body(b"Not found".to_vec())
+                    .unwrap();
+            }
+
+            let ext = file_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+
+            // HEIC: convert and cache as JPEG
+            if thumbnail::is_heic_ext(&ext) {
+                match thumbnail::convert_heic_cached(&file_path) {
+                    Ok(cached_path) => {
+                        let bytes = std::fs::read(&cached_path).unwrap_or_default();
+                        return tauri::http::Response::builder()
+                            .status(200)
+                            .header("Content-Type", "image/jpeg")
+                            .header("Content-Length", bytes.len().to_string())
+                            .body(bytes)
+                            .unwrap();
+                    }
+                    Err(_) => {
+                        return tauri::http::Response::builder()
+                            .status(500)
+                            .body(b"HEIC conversion failed".to_vec())
+                            .unwrap();
+                    }
+                }
+            }
+
+            let mime = mime_for_ext(&ext);
+            let file_size = std::fs::metadata(&file_path)
+                .map(|m| m.len())
+                .unwrap_or(0);
+
+            // Always serve with Range support (critical for video)
+            let range_header = request
+                .headers()
+                .get("Range")
+                .or_else(|| request.headers().get("range"))
+                .and_then(|v| v.to_str().ok())
+                .map(String::from);
+
+            // Determine byte range
+            let (start, end) = if let Some(range_str) = range_header {
+                let range = range_str.trim_start_matches("bytes=");
+                let parts: Vec<&str> = range.split('-').collect();
+                let s: u64 = parts.first().and_then(|s| s.parse().ok()).unwrap_or(0);
+                let e: u64 = parts
+                    .get(1)
+                    .and_then(|v| if v.is_empty() { None } else { v.parse().ok() })
+                    .unwrap_or_else(|| (s + 4 * 1024 * 1024 - 1).min(file_size - 1));
+                (s, e.min(file_size - 1))
+            } else if file_size > 10 * 1024 * 1024 {
+                // Large file without Range: serve first 4MB to trigger range mode
+                (0, (4 * 1024 * 1024 - 1).min(file_size - 1))
+            } else {
+                // Small file: serve entirely
+                (0, file_size - 1)
+            };
+
+            let length = end - start + 1;
+            let is_partial = !(start == 0 && end == file_size - 1);
+
+            let mut file = match std::fs::File::open(&file_path) {
+                Ok(f) => f,
+                Err(_) => {
+                    return tauri::http::Response::builder()
+                        .status(500)
+                        .body(b"Read error".to_vec())
+                        .unwrap();
+                }
+            };
+
+            if start > 0 {
+                let _ = file.seek(SeekFrom::Start(start));
+            }
+            let mut buf = vec![0u8; length as usize];
+            let _ = file.read_exact(&mut buf);
+
+            let mut builder = tauri::http::Response::builder()
+                .header("Content-Type", mime)
+                .header("Content-Length", length.to_string())
+                .header("Accept-Ranges", "bytes");
+
+            if is_partial {
+                builder = builder
+                    .status(206)
+                    .header("Content-Range", format!("bytes {}-{}/{}", start, end, file_size));
+            } else {
+                builder = builder.status(200);
+            }
+
+            builder.body(buf).unwrap()
+        })
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -106,7 +265,9 @@ pub fn run() {
             scan_media,
             force_scan,
             get_thumbnail,
-            get_media_file
+            get_thumbnail_cache_dir,
+            batch_ensure_thumbnails,
+            get_media_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -123,6 +284,14 @@ mod tests {
         let _scan: fn(tauri::AppHandle, String) -> _ = scan_media;
         let _force: fn(tauri::AppHandle, String) -> _ = force_scan;
         let _thumb: fn(tauri::AppHandle, String, String) -> _ = get_thumbnail;
-        let _media: fn(String, String) -> _ = get_media_file;
+        let _info: fn(String, String) -> _ = get_media_info;
+    }
+
+    #[test]
+    fn test_mime_types() {
+        assert_eq!(mime_for_ext("jpg"), "image/jpeg");
+        assert_eq!(mime_for_ext("MP4"), "video/mp4");
+        assert_eq!(mime_for_ext("heic"), "image/jpeg");
+        assert_eq!(mime_for_ext("mov"), "video/quicktime");
     }
 }

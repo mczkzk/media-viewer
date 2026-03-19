@@ -64,18 +64,16 @@ class Lightbox {
   /**
    * Show lightbox with item at index
    */
-  async show(index) {
+  show(index) {
     this.currentIndex = index;
     const item = this.gallery.getItem(index);
 
     if (!item) return;
 
     // Clear content
-    this.content.innerHTML = '<div class="loading">読み込み中...</div>';
-
-    // Create appropriate element
-    const mediaUrl = await this.gallery.getMediaUrl(item);
     this.content.innerHTML = '';
+
+    const mediaUrl = this.gallery.getMediaUrl(item);
     if (item.type === 'image') {
       const img = document.createElement('img');
       img.src = mediaUrl;
@@ -176,10 +174,15 @@ class Lightbox {
     this.infoPanelContent.innerHTML = '<div class="loading">読み込み中...</div>';
 
     try {
-      const response = await fetch(`/api/media-info?path=${encodeURIComponent(item.path)}`);
-      if (!response.ok) throw new Error('Failed to load info');
-
-      const info = await response.json();
+      let info;
+      const tauriApp = this.gallery.tauriApp;
+      if (tauriApp && tauriApp.isTauri) {
+        info = await tauriApp.getMediaInfo(item.path);
+      } else {
+        const response = await fetch(`/api/media-info?path=${encodeURIComponent(item.path)}`);
+        if (!response.ok) throw new Error('Failed to load info');
+        info = await response.json();
+      }
       this.displayMediaInfo(info);
     } catch (error) {
       console.error('Error loading media info:', error);
