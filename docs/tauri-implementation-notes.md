@@ -1,82 +1,149 @@
-# Tauri移行 実装メモ
+# Tauri版 実装仕様書
 
 **更新日**: 2026-03-19
 
-## 既存機能の再現状況
+## アーキテクチャ
 
-README.mdに記載された全機能のTauri版での対応状況。
+### 全体構成
 
-| 機能 | Node.js版 | Tauri版 | 状態 |
-|------|----------|---------|------|
-| グリッド表示 (7000枚以上) | Express API | `invoke('scan_media')` | 動作 |
-| サムネイル生成 (300x300) | sharp | image crate + base64 | 動作 (JPG/PNG) |
-| HEIC→JPEG変換 | sips | sips (Command API) | 未確認 (エラー発生の可能性) |
-| 動画サムネイル | ffmpeg | ffmpeg (Command API) | 未確認 |
-| 動画再生 | Express static | base64 data URL | 未実装 (大容量動画はbase64不可) |
-| ライトボックス表示 | /api/image | `invoke('get_media_file')` base64 | 動作 (JPG) |
-| スライドショー (矢印キー) | gallery.js + lightbox.js | そのまま流用 | 動作 |
-| 年フィルター | gallery.js | そのまま流用 | 動作 |
-| イベント名検索 | gallery.js + kana-converter | そのまま流用 | 動作 |
-| ソート (新しい順/古い順) | gallery.js | そのまま流用 | 動作 |
-| サムネイルサイズ切替 | CSS class | そのまま流用 | 動作 |
-| 年区切り表示 | gallery.js | そのまま流用 | 動作 |
-| 年インデックスナビ | gallery.js | そのまま流用 | 動作 |
-| Lazy Loading | loading="lazy" | IntersectionObserver | 動作 |
-| サムネイルキャッシュ | cache/thumbnails/ | AppData/cache/thumbnails/ | 動作 |
-| スキャンキャッシュ (24h TTL) | cache/index.json | AppData/cache/index.json | 動作 |
-| 再スキャンボタン | /api/scan | `invoke('force_scan')` | 動作 |
-| フォルダ選択 | .env手動設定 | ネイティブダイアログ | 動作 (改善) |
-| 設定永続化 | .env | plugin-store | 動作 (改善) |
-| 階層モード (Finder風) | gallery.js | そのまま流用 | 動作 |
-| パンくずナビ | gallery.js | そのまま流用 | 動作 |
-| URL状態永続化 (?year=&q=) | gallery.js | そのまま流用 | 動作 |
-| 日本語かな検索 | kana-converter.js | そのまま流用 | 動作 |
-| EXIF情報表示 | /api/media-info | 未実装 | 未実装 |
-| GPS地図表示 | Google Maps iframe | 未実装 | 未実装 |
-| ディレクトリトラバーサル対策 | validatePath() | Rust型安全 + fsスコープ | 動作 (改善) |
+```
+[Tauri WebView (フロントエンド)]
+    │
+    ├── gallery.js ──── invoke('scan_media') ───────┐
+    ├── gallery.js ──── invoke('get_thumbnail') ────┤
+    ├── gallery.js ──── invoke('batch_ensure_...') ─┤
+    ├── lightbox.js ─── invoke('get_media_info') ───┤ IPC
+    ├── tauri-app.js ── invoke('get_stored_path') ──┤
+    ├── tauri-app.js ── invoke('set_stored_path') ──┤
+    │                                               │
+    │   [Rust バックエンド]                          │
+    │   ├── lib.rs (コマンド登録 + プロトコル) ◄─────┘
+    │   ├── scanner.rs (スキャン + キャッシュ)
+    │   └── thumbnail.rs (サムネイル + EXIF + 変換)
+    │
+    ├── <img src="media://..."> ────────────────────┐
+    ├── <video src="media://..."> ──────────────────┤ カスタムプロトコル
+    └── <img src="media://...thumbnail.jpg"> ───────┘ (Range対応)
+```
 
-## 未解決の問題
+### データフロー
 
-### 1. 動画再生 (base64方式の限界)
-現在 `get_media_file` はファイル全体をbase64で返す。動画ファイル(数百MB)では不可能。
-**対策**: Asset Protocolを解決するか、ローカルHTTPサーバーをRust側で立てる。
+1. **起動時**: `plugin-store` から `mediaBasePath` を読み込み。未設定なら `plugin-dialog` でフォルダ選択
+2. **スキャン**: `scan_media` コマンドで YEAR/EVENT 構造をRustで再帰スキャン。結果は `AppData/cache/index.json` にキャッシュ (24h TTL)
+3. **サムネイル表示**: フロントエンドでMD5ハッシュからキャッシュパスを計算し、`media://` URLを `<img src>` に直接設定。キャッシュミス (404) 時は `batch_ensure_thumbnails` でバッチ生成後リトライ
+4. **フルサイズ表示**: `media://` カスタムプロトコルでファイルを配信。HEICは自動JPEG変換。動画はRange requestsでストリーミング
+5. **メディア情報**: `get_media_info` コマンドで `kamadak-exif` (EXIF) + `ffprobe` (動画メタデータ) を取得
 
-### 2. HEIC変換の動作確認
-`sips` コマンドをRust `Command` APIで呼んでいるが、実際のHEICファイルでの動作未確認。
-パスにスペースや日本語が含まれる場合の動作も要確認。
+## Rustモジュール構成
 
-### 3. Asset Protocol未解決
-`http://asset.localhost` が「Could not connect to the server」で機能しない。
-config: `assetProtocol.enable: true`, `scope: ["/**"]`, feature: `protocol-asset` 設定済みだが動作せず。
-base64方式で回避中だが、動画再生のためにいずれ解決が必要。
+### lib.rs - エントリポイント
 
-## 技術的な決定事項
+**Tauriコマンド:**
 
-### base64方式を選択した理由
-- Asset Protocol (`http://asset.localhost`) が動作しない問題の回避
-- サムネイル(300x300 JPEG)はbase64でも十分高速
-- フルサイズ画像もJPEG/PNGなら数MBでbase64可能
+| コマンド | 引数 | 戻り値 | 用途 |
+|---------|------|--------|------|
+| `get_stored_path` | - | `Option<String>` | 保存済みメディアパス取得 |
+| `set_stored_path` | `path` | - | メディアパス保存 |
+| `scan_media` | `base_path` | `Vec<MediaItem>` | メディアスキャン (キャッシュ付き) |
+| `force_scan` | `base_path` | `Vec<MediaItem>` | 強制再スキャン |
+| `get_thumbnail` | `path`, `base_path` | `String` (キャッシュパス) | サムネイル生成/取得 |
+| `get_thumbnail_cache_dir` | - | `String` | キャッシュディレクトリパス |
+| `batch_ensure_thumbnails` | `paths[]`, `base_path` | `Vec<bool>` | バッチサムネイル生成 |
+| `get_media_info` | `path`, `base_path` | `JSON` | EXIF/動画メタデータ |
 
-### EXIF回転の実装
-- `kamadak-exif` crateでOrientation読み取り
-- `image` crateの `rotate90()` / `rotate270()` 等で回転
-- 元の `sharp().rotate()` と同等の動作
+**カスタムプロトコル `media://`:**
+- URLパスをデコードしてローカルファイルを配信
+- HEIC: sipsで変換、永続キャッシュ (`AppData/cache/converted/`)
+- 動画: Range requests対応 (HTTP 206)、4MBチャンク
+- 大ファイル (10MB超): 自動的にチャンク配信
 
-### IntersectionObserver採用
-- 元のNode.js版は `loading="lazy"` のみ
-- Tauri版はbase64非同期読み込みのため、IntersectionObserverで可視領域+200pxのみリクエスト
-- 7000枚を一度にリクエストしないよう制御
+### scanner.rs - ファイルスキャナー
 
-## Rustテスト (18件)
+- `walkdir` crateで `YEAR/EVENT/...files` 構造を再帰スキャン
+- 隠しファイル (`.`) をスキップ
+- メディア拡張子のみ収集 (jpg, jpeg, png, gif, heic, heif, mp4, mov, avi, m4v, mkv)
+- `birthtime` を `mtime` として使用 (元のNode.js版と同じ)
+- JSON形式でキャッシュ (24時間TTL)
+
+### thumbnail.rs - サムネイル/メディア処理
+
+**サムネイル生成:**
+- 300x300px JPEG、cover crop (中央トリミング)
+- `image` crate + Triangle フィルタ (速度優先)
+- EXIF Orientation に基づく自動回転 (`kamadak-exif`)
+- MD5ハッシュでキャッシュファイル名生成
+- 失敗時はプレースホルダー画像を保存 (再試行ループ防止)
+
+**HEIC変換:**
+- macOS `sips` コマンドで JPEG に変換
+- サムネイル用: tempディレクトリに書き出し、リサイズ後に削除
+- フルサイズ表示用: `AppData/cache/converted/` に永続キャッシュ
+
+**動画サムネイル:**
+- `ffmpeg` (npm ffmpeg-static またはシステム) で1秒目フレーム抽出
+- 失敗時はダークグレーのプレースホルダー
+
+**メディア情報 (`get_media_info`):**
+- 画像: `kamadak-exif` でEXIF (撮影日時、カメラ、レンズ、ISO、F値、露出、焦点距離、GPS)
+- 動画: `ffprobe` で再生時間、コーデック、fps、解像度
+- 共通: ファイルサイズ、更新日時、寸法、メガピクセル
+
+## フロントエンド構成
+
+### tauri-app.js - Tauri統合レイヤー
+
+- `window.__TAURI__` の存在でTauri/ブラウザ環境を判定
+- Node.js版と同じJSファイルが両方の環境で動作
+- MD5ハッシュをJSで計算し、サムネイルURLをIPC不要で直接生成
+- 起動時に `thumbnailCacheDir` を1回だけ取得
+
+### gallery.js - ギャラリーUI
+
+- `tauriApp` パラメータでTauri対応 (コンストラクタ注入)
+- `getThumbnailUrl()`: Tauri時は `media://` URL、ブラウザ時は `/api/thumbnail`
+- `getMediaUrl()`: Tauri時は `media://` URL、ブラウザ時は `/api/image` or `/media/`
+- `loadTauriThumbnails()`: キャッシュミス時のバッチ生成 + リトライ
+
+### lightbox.js - ライトボックス
+
+- `getMediaUrl()` 経由でTauri/ブラウザ両対応
+- `loadMediaInfo()`: Tauri時は `invoke('get_media_info')`、ブラウザ時は `fetch('/api/media-info')`
+
+## 設定・権限
+
+### tauri.conf.json
+
+- `withGlobalTauri: true` (バンドラー不要でTauri APIにアクセス)
+- CSP: `media:` スキームと Google Maps iframe を許可
+- ウィンドウ: 1200x800、リサイズ可能
+
+### capabilities/default.json
+
+- `core:default`, `dialog:allow-open`, `store:default`, `fs:default`
+
+## テスト (21件)
 
 ### scanner (10件)
 - ディレクトリ構造スキャン、隠しファイル除外、非メディア除外
 - メディアタイプ判定、年/イベント割り当て、ネストパス
 - キャッシュ読み書き、キャッシュ使用/強制スキャン、無効ディレクトリ
 
-### thumbnail (7件)
-- MD5ハッシュ生成、動画/HEIC判定
-- JPEG生成、キャッシュヒット、ファイル未検出、リサイズアスペクト比
+### thumbnail (9件)
+- MD5ハッシュ生成 (決定性、一意性)、動画/HEIC判定
+- JPEG生成、キャッシュヒット、ファイル未検出
+- リサイズアスペクト比、メディア情報取得、HEIC拡張子判定
 
-### lib (1件)
-- コマンドハンドラの存在確認
+### lib (2件)
+- コマンドハンドラの存在確認、MIMEタイプ判定
+
+## パフォーマンス最適化
+
+| 最適化 | 効果 |
+|--------|------|
+| `[profile.dev.package."*"] opt-level = 2` | 依存crateをdevでも最適化。画像処理が5-10倍高速 |
+| MD5をJSで計算 | キャッシュ済みサムネイルはIPC不要。ブラウザが直接並列読み込み |
+| バッチサムネイル生成 | 未キャッシュ分を1回のIPCで20枚ずつ処理 |
+| Range requests | 動画を4MBチャンクでストリーミング。メモリ使用量削減 |
+| Triangle フィルタ | Lanczos3より高速なリサイズ (サムネイルには十分な品質) |
+| HEIC永続キャッシュ | sips変換結果をAppDataに保存。2回目以降は即座に配信 |
+| 失敗プレースホルダー | 生成失敗ファイルにダミー画像を保存。再試行ループ防止 |
