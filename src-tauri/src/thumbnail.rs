@@ -135,6 +135,16 @@ fn which_ffmpeg() -> Option<String> {
         return npm_path.to_str().map(String::from);
     }
 
+    for path in &[
+        "/opt/homebrew/bin/ffmpeg",
+        "/usr/local/bin/ffmpeg",
+        "/usr/bin/ffmpeg",
+    ] {
+        if Path::new(path).exists() {
+            return Some(path.to_string());
+        }
+    }
+
     Command::new("which")
         .arg("ffmpeg")
         .output()
@@ -154,6 +164,16 @@ fn which_ffprobe() -> Option<String> {
         .join("ffprobe");
     if npm_path.exists() {
         return npm_path.to_str().map(String::from);
+    }
+
+    for path in &[
+        "/opt/homebrew/bin/ffprobe",
+        "/usr/local/bin/ffprobe",
+        "/usr/bin/ffprobe",
+    ] {
+        if Path::new(path).exists() {
+            return Some(path.to_string());
+        }
     }
 
     Command::new("which")

@@ -183,6 +183,11 @@ body {
   z-index: 1;
 }
 
+/* Hide loading icon once image is loaded (img covers the ::before) */
+.grid-item:not(.loading)::before {
+  display: none;
+}
+
 /* Error state */
 .grid-item.error {
   background-color: #ffebee;

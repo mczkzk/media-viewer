@@ -228,6 +228,19 @@ class Gallery {
       });
     };
 
+    // Ensure loading class is removed when image loads (inline onload may not fire for media:// URLs)
+    this.container.querySelectorAll('img[data-path]').forEach(img => {
+      img.addEventListener('load', function() {
+        this.parentElement.classList.remove('loading');
+        this.parentElement.classList.remove('error');
+      });
+      // If already loaded (cached), remove loading immediately
+      if (img.complete && img.naturalWidth > 0) {
+        img.parentElement.classList.remove('loading');
+        img.parentElement.classList.remove('error');
+      }
+    });
+
     // Override onerror for all thumbnail images to batch-generate
     this.container.querySelectorAll('img[data-path]').forEach(img => {
       const originalOnerror = img.onerror;
