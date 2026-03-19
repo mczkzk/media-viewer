@@ -9,9 +9,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run tauri:dev
 ```
 
-**Build app:**
+**Build + install + sign:**
 ```bash
-npm run tauri:build
+npm run install-app
 ```
 
 **Run Rust tests:**
@@ -34,12 +34,13 @@ npm install
 
 ### Data Flow Architecture
 
-**Tauri WebView (Frontend) → IPC → Rust Backend → Local Files**
+**Tauri WebView (Frontend) → IPC/HTTP → Rust Backend → Local Files**
 
 1. **Rust Backend (src-tauri/src/lib.rs)**:
    - Tauri v2 commands: scan_media, get_thumbnail, batch_ensure_thumbnails, get_media_info
-   - Custom `media://` protocol for file serving (images, videos, thumbnails)
-   - Range requests support for video streaming (4MB chunks)
+   - Local HTTP server (`tiny_http`, src/video_server.rs) for all file serving on random port
+   - `media://` protocol retained as fallback for HEIC conversion
+   - Range requests support for video streaming
    - HEIC auto-conversion via macOS `sips`, cached in AppData
    - `plugin-store` for persisting mediaBasePath, `plugin-dialog` for folder selection
 
@@ -81,7 +82,7 @@ npm install
   - Detects Tauri environment via `window.__TAURI__`
   - JS-side MD5 hash for thumbnail URLs (no IPC needed for cached thumbnails)
   - Batch thumbnail generation for cache misses
-  - `media://` URL construction for images and videos
+  - All content served via `http://127.0.0.1:PORT/...` (local HTTP server)
 
 - **Gallery (public/js/gallery.js)**:
   - Two render modes: `renderFlat()` and `renderHierarchical()`
@@ -128,14 +129,14 @@ npm install
 - `updateURL()` called on filter/search/mode changes
 
 **Thumbnail Loading (Tauri mode):**
-- Frontend calculates MD5 hash of relative path → constructs `media://` URL to cache file
-- Browser loads cached thumbnail directly (no IPC)
-- On 404 (cache miss): `onerror` handler batches paths, calls `batch_ensure_thumbnails` IPC
+- Frontend calculates MD5 hash of relative path → constructs `http://127.0.0.1:PORT/...` URL to cache file
+- Browser loads cached thumbnail via local HTTP server (no IPC)
+- On 404 (cache miss): stays in loading state, batches paths, calls `batch_ensure_thumbnails` IPC
 - After generation, retries with cache-busted URL
 
 ## Platform Dependencies
 
 - **macOS** required (uses `sips` for HEIC conversion)
-- **ffmpeg/ffprobe**: Bundled via npm (`ffmpeg-static`, `@ffprobe-installer/ffprobe`) for dev; system install needed for built app
+- **ffmpeg/ffprobe**: Bundled via npm (`ffmpeg-static`, `@ffprobe-installer/ffprobe`) for dev; also found via well-known paths (`/opt/homebrew/bin`, `/usr/local/bin`) in built app
 - **Rust** 1.77.2+
 - **Node.js** 18+ (for Tauri CLI and npm dependencies)

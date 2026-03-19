@@ -6,6 +6,7 @@ class TauriApp {
     this.isTauri = !!window.__TAURI__;
     this.mediaBasePath = null;
     this.thumbnailCacheDir = null;
+    this.videoServerPort = null;
   }
 
   async init() {
@@ -19,6 +20,7 @@ class TauriApp {
 
     if (this.mediaBasePath) {
       this.thumbnailCacheDir = await window.__TAURI__.core.invoke('get_thumbnail_cache_dir');
+      this.videoServerPort = await window.__TAURI__.core.invoke('get_video_server_port');
     }
   }
 
@@ -77,12 +79,12 @@ class TauriApp {
     });
   }
 
-  // Get thumbnail URL directly from cache path (no IPC needed if cached)
+  // Get thumbnail URL via local HTTP server
   thumbnailUrl(relativePath) {
     if (!this.thumbnailCacheDir) return '';
     const hash = this._md5(relativePath);
     const cachePath = this.thumbnailCacheDir + '/' + hash + '.jpg';
-    return this._fileUrl(cachePath);
+    return this._httpUrl(cachePath);
   }
 
   // Batch generate thumbnails that don't exist yet
@@ -93,14 +95,21 @@ class TauriApp {
     });
   }
 
-  // Get full-size media URL via custom protocol
+  // Get full-size media URL via local HTTP server
   mediaUrl(relativePath) {
     const fullPath = this.mediaBasePath + '/' + relativePath;
-    return this._fileUrl(fullPath);
+    return this._httpUrl(fullPath);
   }
 
   _fileUrl(absolutePath) {
     return 'media://localhost/' + encodeURI(absolutePath).replace(/#/g, '%23');
+  }
+
+  _httpUrl(absolutePath) {
+    if (this.videoServerPort) {
+      return 'http://127.0.0.1:' + this.videoServerPort + encodeURI(absolutePath).replace(/#/g, '%23');
+    }
+    return this._fileUrl(absolutePath);
   }
 
   async getMediaInfo(relativePath) {

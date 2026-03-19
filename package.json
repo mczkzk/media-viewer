@@ -5,7 +5,8 @@
   "scripts": {
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "install-app": "tauri build --bundles app && rm -rf '/Applications/Media Viewer.app' && cp -R src-tauri/target/release/bundle/macos/'Media Viewer.app' /Applications/ && codesign --force --deep -s - '/Applications/Media Viewer.app'"
   },
   "keywords": [
     "media",

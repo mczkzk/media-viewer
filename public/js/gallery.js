@@ -108,7 +108,7 @@ class Gallery {
                alt="${item.filename}"
                loading="lazy"
                onload="this.parentElement.classList.remove('loading');this.parentElement.classList.remove('error')"
-               onerror="if(this.src){this.parentElement.classList.add('error');this.parentElement.classList.remove('loading')}">
+               onerror="if(this.src && !window.__TAURI__){this.parentElement.classList.add('error');this.parentElement.classList.remove('loading')}">
           <div class="caption">${this.getDisplayCaption(item)}</div>
         </div>
       `;

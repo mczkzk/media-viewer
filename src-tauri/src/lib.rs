@@ -1,7 +1,9 @@
 mod scanner;
 mod thumbnail;
+mod video_server;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_fs::FsExt;
 use tauri_plugin_store::StoreExt;
@@ -99,6 +101,13 @@ async fn get_media_info(path: String, base_path: String) -> Result<serde_json::V
     let full_path = PathBuf::from(&base_path).join(&path);
     thumbnail::get_media_info(&full_path)
 }
+
+#[tauri::command]
+async fn get_video_server_port(state: tauri::State<'_, VideoServerPort>) -> Result<u16, String> {
+    Ok(state.0)
+}
+
+struct VideoServerPort(u16);
 
 fn mime_for_ext(ext: &str) -> &'static str {
     match ext.to_lowercase().as_str() {
@@ -238,6 +247,10 @@ pub fn run() {
             builder.body(buf).unwrap()
         })
         .setup(|app| {
+            // Start video streaming server on a random port
+            let port = video_server::start();
+            app.manage(VideoServerPort(port));
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -267,7 +280,8 @@ pub fn run() {
             get_thumbnail,
             get_thumbnail_cache_dir,
             batch_ensure_thumbnails,
-            get_media_info
+            get_media_info,
+            get_video_server_port
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
