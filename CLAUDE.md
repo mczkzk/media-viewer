@@ -9,7 +9,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run tauri:dev
 ```
 
-**Build + install + sign:**
+**Build DMG installer:**
+```bash
+npm run tauri:build
+```
+
+**Build + install to /Applications + ad-hoc sign:**
 ```bash
 npm run install-app
 ```
@@ -37,7 +42,7 @@ npm install
 **Tauri WebView (Frontend) → IPC/HTTP → Rust Backend → Local Files**
 
 1. **Rust Backend (src-tauri/src/lib.rs)**:
-   - Tauri v2 commands: scan_media, get_thumbnail, batch_ensure_thumbnails, get_media_info
+   - Tauri v2 IPC commands (see table below)
    - Local HTTP server (`tiny_http`, src/video_server.rs) for all file serving on random port
    - `media://` protocol retained as fallback for HEIC conversion
    - Range requests support for video streaming
@@ -61,6 +66,20 @@ npm install
    - `kamadak-exif` for EXIF data (camera, lens, GPS, settings)
    - `ffprobe` for video metadata (duration, codec, fps)
 
+### Tauri IPC Commands
+
+| Command | Args | Returns | Purpose |
+|---------|------|---------|---------|
+| `get_stored_path` | - | `Option<String>` | Get saved media folder path |
+| `set_stored_path` | `path` | - | Save media folder path |
+| `scan_media` | `base_path` | `Vec<MediaItem>` | Scan media (with cache) |
+| `force_scan` | `base_path` | `Vec<MediaItem>` | Force rescan (ignore cache) |
+| `get_thumbnail` | `path`, `base_path` | `String` | Generate/get single thumbnail |
+| `get_thumbnail_cache_dir` | - | `String` | Cache directory path |
+| `batch_ensure_thumbnails` | `paths[]`, `base_path` | `Vec<bool>` | Batch thumbnail generation |
+| `get_media_info` | `path`, `base_path` | `JSON` | EXIF/video metadata |
+| `get_video_server_port` | - | `u16` | Local HTTP server port |
+
 ### Frontend Architecture (Vanilla JS)
 
 **Two display modes:**
@@ -74,7 +93,7 @@ npm install
    - Shows folder/file structure (Finder-like)
    - Breadcrumb navigation
    - Folders clickable to navigate deeper
-   - Click title to return to flat mode
+   - Clear year filter to return to flat mode
 
 **Key Components:**
 

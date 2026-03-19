@@ -100,10 +100,10 @@ npm run tauri:build -- --target universal-apple-darwin
 
 ```
 /your-media-path/
-├── 1989/
-│   ├── 1989-04/
+├── 2000/
+│   ├── 2000-04/
 │   │   └── photo.jpg
-│   └── 1989-05/
+│   └── 2000-05/
 ├── 2024/
 │   └── 2024-06-vacation/
 │       ├── photo.jpg
