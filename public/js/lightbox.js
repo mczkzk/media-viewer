@@ -16,27 +16,17 @@ class Lightbox {
     this.bindEvents();
   }
 
-  /**
-   * Bind event listeners
-   */
   bindEvents() {
-    // Listen for item clicks from gallery
     document.addEventListener('itemClick', (e) => {
       this.show(e.detail.index);
     });
 
-    // Close button
     this.closeBtn.addEventListener('click', () => this.close());
-
-    // Previous/Next buttons
     this.prevBtn.addEventListener('click', () => this.prev());
     this.nextBtn.addEventListener('click', () => this.next());
-
-    // Info button
     this.infoBtn.addEventListener('click', () => this.toggleInfoPanel());
     this.infoPanelClose.addEventListener('click', () => this.closeInfoPanel());
 
-    // Keyboard navigation
     document.addEventListener('keydown', (e) => {
       if (!this.modal.classList.contains('active')) return;
 
@@ -53,7 +43,6 @@ class Lightbox {
       }
     });
 
-    // Click outside to close
     this.modal.addEventListener('click', (e) => {
       if (e.target === this.modal) {
         this.close();
@@ -61,16 +50,12 @@ class Lightbox {
     });
   }
 
-  /**
-   * Show lightbox with item at index
-   */
   show(index) {
     this.currentIndex = index;
     const item = this.gallery.getItem(index);
 
     if (!item) return;
 
-    // Clear content
     this.content.innerHTML = '';
 
     const mediaUrl = this.gallery.getMediaUrl(item);
@@ -87,58 +72,38 @@ class Lightbox {
       this.content.appendChild(video);
     }
 
-    // Update info
-    const filename = this.info.querySelector('.lightbox-filename');
-    const counter = this.info.querySelector('.lightbox-counter');
-    filename.textContent = item.filename;
-    counter.textContent = `${index + 1} / ${this.gallery.filteredItems.length}`;
+    this.info.querySelector('.lightbox-filename').textContent = item.filename;
+    this.info.querySelector('.lightbox-counter').textContent = `${index + 1} / ${this.gallery.filteredItems.length}`;
 
-    // Show modal
     this.modal.classList.add('active');
 
-    // Reload info panel if open
     if (this.infoPanel.classList.contains('active')) {
       this.loadMediaInfo();
     }
   }
 
-  /**
-   * Close lightbox
-   */
   close() {
     this.modal.classList.remove('active');
     this.closeInfoPanel();
 
-    // Stop video if playing
     const video = this.content.querySelector('video');
     if (video) {
       video.pause();
     }
   }
 
-  /**
-   * Show previous item
-   */
   prev() {
-    const newIndex = this.currentIndex - 1;
-    if (newIndex >= 0) {
-      this.show(newIndex);
+    if (this.currentIndex > 0) {
+      this.show(this.currentIndex - 1);
     }
   }
 
-  /**
-   * Show next item
-   */
   next() {
-    const newIndex = this.currentIndex + 1;
-    if (newIndex < this.gallery.filteredItems.length) {
-      this.show(newIndex);
+    if (this.currentIndex < this.gallery.filteredItems.length - 1) {
+      this.show(this.currentIndex + 1);
     }
   }
 
-  /**
-   * Toggle info panel
-   */
   async toggleInfoPanel() {
     if (this.infoPanel.classList.contains('active')) {
       this.closeInfoPanel();
@@ -147,26 +112,17 @@ class Lightbox {
     }
   }
 
-  /**
-   * Open info panel
-   */
   async openInfoPanel() {
     this.infoPanel.classList.add('active');
     this.modal.classList.add('info-open');
     await this.loadMediaInfo();
   }
 
-  /**
-   * Close info panel
-   */
   closeInfoPanel() {
     this.infoPanel.classList.remove('active');
     this.modal.classList.remove('info-open');
   }
 
-  /**
-   * Load media info from API
-   */
   async loadMediaInfo() {
     const item = this.gallery.getItem(this.currentIndex);
     if (!item) return;
@@ -190,137 +146,72 @@ class Lightbox {
     }
   }
 
-  /**
-   * Display media info in panel
-   */
   displayMediaInfo(info) {
     let html = '<div class="info-section">';
 
-    // File info
-    html += '<div class="info-item">';
-    html += '<div class="info-icon">📄</div>';
-    html += '<div class="info-details">';
-    html += `<div class="info-label">${info.filename}</div>`;
-    html += `<div class="info-value">${this.formatFileSize(info.size)}</div>`;
-    html += '</div></div>';
+    html += this._infoItem('📄', info.filename, this.formatFileSize(info.size));
 
-    // Dimensions and megapixels
     if (info.width && info.height) {
-      html += '<div class="info-item">';
-      html += '<div class="info-icon">📏</div>';
-      html += '<div class="info-details">';
-      html += `<div class="info-label">${info.width} × ${info.height}</div>`;
-      if (info.megapixels) {
-        html += `<div class="info-value">${info.megapixels}MP</div>`;
-      }
-      html += '</div></div>';
+      html += this._infoItem('📏', `${info.width} × ${info.height}`,
+        info.megapixels ? `${info.megapixels}MP` : '');
     }
 
-    // EXIF data (images only)
     if (info.exif) {
-      // Date/Time
       if (info.exif.dateTime) {
-        html += '<div class="info-item">';
-        html += '<div class="info-icon">📅</div>';
-        html += '<div class="info-details">';
-        html += `<div class="info-label">${this.formatDateTime(info.exif.dateTime)}</div>`;
-        html += '</div></div>';
+        html += this._infoItem('📅', this.formatDateTime(info.exif.dateTime));
       }
 
-      // Camera
       if (info.exif.make || info.exif.model) {
-        html += '<div class="info-item">';
-        html += '<div class="info-icon">📷</div>';
-        html += '<div class="info-details">';
         const camera = [info.exif.make, info.exif.model].filter(Boolean).join(' ');
-        html += `<div class="info-label">${camera}</div>`;
-
-        // Camera settings
         const settings = [];
         if (info.exif.fNumber) settings.push(`f/${info.exif.fNumber}`);
         if (info.exif.exposureTime) settings.push(`1/${Math.round(1/info.exif.exposureTime)}s`);
         if (info.exif.focalLength) settings.push(`${info.exif.focalLength}mm`);
         if (info.exif.iso) settings.push(`ISO${info.exif.iso}`);
-
-        if (settings.length > 0) {
-          html += `<div class="info-value">${settings.join(' ')}</div>`;
-        }
-        html += '</div></div>';
+        html += this._infoItem('📷', camera, settings.join(' '));
       }
 
-      // Lens
       if (info.exif.lens) {
-        html += '<div class="info-item">';
-        html += '<div class="info-icon">🔍</div>';
-        html += '<div class="info-details">';
-        html += `<div class="info-label">${info.exif.lens}</div>`;
-        html += '</div></div>';
+        html += this._infoItem('🔍', info.exif.lens);
       }
     }
 
-    // Video info
     if (info.type === 'video') {
       if (info.duration) {
-        html += '<div class="info-item">';
-        html += '<div class="info-icon">⏱</div>';
-        html += '<div class="info-details">';
-        html += `<div class="info-label">再生時間</div>`;
-        html += `<div class="info-value">${this.formatDuration(info.duration)}</div>`;
-        html += '</div></div>';
+        html += this._infoItem('⏱', '再生時間', this.formatDuration(info.duration));
       }
-
       if (info.codec) {
-        html += '<div class="info-item">';
-        html += '<div class="info-icon">🎬</div>';
-        html += '<div class="info-details">';
-        html += `<div class="info-label">${info.codec.toUpperCase()}</div>`;
-        if (info.fps) {
-          html += `<div class="info-value">${info.fps.toFixed(0)} fps</div>`;
-        }
-        html += '</div></div>';
+        html += this._infoItem('🎬', info.codec.toUpperCase(),
+          info.fps ? `${info.fps.toFixed(0)} fps` : '');
       }
     }
 
-    // Modified date
-    html += '<div class="info-item">';
-    html += '<div class="info-icon">🕐</div>';
-    html += '<div class="info-details">';
-    html += `<div class="info-label">更新日時</div>`;
-    html += `<div class="info-value">${this.formatDateTime(info.modified)}</div>`;
-    html += '</div></div>';
+    html += this._infoItem('🕐', '更新日時', this.formatDateTime(info.modified));
 
-    // GPS (at the bottom)
     if (info.exif && info.exif.gps) {
-      const lat = info.exif.gps.latitude;
-      const lng = info.exif.gps.longitude;
-
-      html += '<div class="info-item">';
-      html += '<div class="info-icon">📍</div>';
-      html += '<div class="info-details">';
-      html += `<div class="info-label">位置情報</div>`;
-      html += `<div class="info-value">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>`;
-      html += '</div></div>';
-
-      // Embedded map
-      html += '<div class="info-map">';
-      html += `<iframe
-        width="100%"
-        height="200"
-        frameborder="0"
-        style="border:0"
-        src="https://maps.google.com/maps?q=${lat},${lng}&z=14&output=embed"
-        allowfullscreen>
-      </iframe>`;
-      html += '</div>';
+      const { latitude: lat, longitude: lng } = info.exif.gps;
+      html += this._infoItem('📍', '位置情報', `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      html += `<div class="info-map">
+        <iframe width="100%" height="200" frameborder="0" style="border:0"
+          src="https://maps.google.com/maps?q=${lat},${lng}&z=14&output=embed"
+          allowfullscreen></iframe>
+      </div>`;
     }
 
     html += '</div>';
     this.infoPanelContent.innerHTML = html;
   }
 
-  /**
-   * Format file size
-   */
+  _infoItem(icon, label, value) {
+    let html = '<div class="info-item">';
+    html += `<div class="info-icon">${icon}</div>`;
+    html += '<div class="info-details">';
+    html += `<div class="info-label">${label}</div>`;
+    if (value) html += `<div class="info-value">${value}</div>`;
+    html += '</div></div>';
+    return html;
+  }
+
   formatFileSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -328,23 +219,13 @@ class Lightbox {
     return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
   }
 
-  /**
-   * Format date/time
-   */
   formatDateTime(dateTime) {
-    const date = new Date(dateTime);
-    return date.toLocaleString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(dateTime).toLocaleString('ja-JP', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit'
     });
   }
 
-  /**
-   * Format duration (seconds to MM:SS)
-   */
   formatDuration(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
