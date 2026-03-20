@@ -18,6 +18,8 @@ class VirtualScroller {
     this._onScroll = this._onScroll.bind(this);
     this._onResize = this._onResize.bind(this);
     this._resizeTimer = null;
+    this._rafPending = false;
+    this._yearTopsCache = new Map();
 
     window.addEventListener('scroll', this._onScroll, { passive: true });
     window.addEventListener('resize', this._onResize, { passive: true });
@@ -32,6 +34,7 @@ class VirtualScroller {
     this.container.style.height = this.totalHeight + 'px';
     this.renderedRange = { start: -1, end: -1 };
     this._clearDOM();
+    this._buildYearTopsCache();
     this._render();
   }
 
@@ -187,21 +190,9 @@ class VirtualScroller {
     el.style.gridTemplateColumns = this._gridTemplate;
     el.style.gap = this.gap + 'px';
 
-    const html = row.items.map(({ item, filteredIndex }) => {
-      const videoClass = item.type === 'video' ? 'video' : '';
-      const thumbSrc = this.gallery.getThumbnailUrl(item);
-      return `
-        <div class="grid-item ${videoClass} loading" data-index="${filteredIndex}">
-          <img src="${thumbSrc}"
-               data-path="${item.path}"
-               alt="${item.filename}"
-               loading="lazy"
-               onload="this.parentElement.classList.remove('loading');this.parentElement.classList.remove('error')"
-               onerror="if(this.src && !window.__TAURI__){this.parentElement.classList.add('error');this.parentElement.classList.remove('loading')}">
-          <div class="caption">${this.gallery.getDisplayCaption(item)}</div>
-        </div>
-      `;
-    }).join('');
+    const html = row.items.map(({ item, filteredIndex }) =>
+      this.gallery.renderMediaCard(item, filteredIndex)
+    ).join('');
 
     el.innerHTML = html;
 
@@ -224,24 +215,26 @@ class VirtualScroller {
   }
 
   _clearDOM() {
-    for (const el of this._domPool.values()) {
-      el.remove();
-    }
     this._domPool.clear();
-    // Remove any leftover children (from previous non-virtual render)
     this.container.innerHTML = '';
   }
 
   _onScroll() {
-    this._render();
+    if (this._rafPending) return;
+    this._rafPending = true;
+    requestAnimationFrame(() => {
+      this._rafPending = false;
+      this._render();
+    });
   }
 
   _onResize() {
     if (this._resizeTimer) clearTimeout(this._resizeTimer);
     this._resizeTimer = setTimeout(() => {
       const prevCols = this.cols;
+      const prevItemSize = this.itemSize;
       this._measureGrid();
-      if (this.cols !== prevCols || Math.abs(this.itemSize - (parseFloat(this._gridTemplate.split(' ')[0]) || 190)) > 1) {
+      if (this.cols !== prevCols || Math.abs(this.itemSize - prevItemSize) > 1) {
         this.rebuild(this.gallery.filteredItems, this.gallery.getYearCounts());
       } else {
         this._calcTops();
@@ -253,25 +246,22 @@ class VirtualScroller {
     }, 200);
   }
 
-  getYearTop(year) {
+  _buildYearTopsCache() {
     const containerTop = this.container.getBoundingClientRect().top + window.scrollY;
+    this._yearTopsCache = new Map();
     for (let i = 0; i < this.rows.length; i++) {
-      if (this.rows[i].type === 'divider' && this.rows[i].year === year) {
-        return containerTop + this.tops[i];
+      if (this.rows[i].type === 'divider') {
+        this._yearTopsCache.set(this.rows[i].year, containerTop + this.tops[i]);
       }
     }
-    return null;
+  }
+
+  getYearTop(year) {
+    return this._yearTopsCache.get(year) ?? null;
   }
 
   getYearTops() {
-    const containerTop = this.container.getBoundingClientRect().top + window.scrollY;
-    const map = new Map();
-    for (let i = 0; i < this.rows.length; i++) {
-      if (this.rows[i].type === 'divider') {
-        map.set(this.rows[i].year, containerTop + this.tops[i]);
-      }
-    }
-    return map;
+    return this._yearTopsCache;
   }
 
   destroy() {

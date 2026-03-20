@@ -193,6 +193,9 @@
         const thumbnailSize = document.getElementById('thumbnail-size');
         thumbnailSize.addEventListener('change', (e) => {
           galleryContainer.className = 'gallery-container size-' + e.target.value;
+          if (gallery._vscroller) {
+            gallery._vscroller.rebuild(gallery.filteredItems, gallery.getYearCounts());
+          }
         });
 
         // Rescan button handler

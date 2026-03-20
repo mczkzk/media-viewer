@@ -123,13 +123,17 @@ body {
 }
 
 /* Hover effect for media items */
-.grid-item:not(.folder):not(.loading):not(.error):hover::after {
+.grid-item:not(.folder):not(.loading):not(.error):not(.video):hover::after {
   content: '';
   position: absolute;
   inset: 0;
   background: rgba(255, 255, 255, 0.15);
   pointer-events: none;
   z-index: 2;
+}
+
+.grid-item.video:not(.loading):not(.error):hover img {
+  opacity: 0.8;
 }
 
 /* Virtual scroll active state (flat mode) */
