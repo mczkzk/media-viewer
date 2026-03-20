@@ -129,6 +129,12 @@
         if (urlState.year) {
           yearFilter.value = urlState.year;
           gallery.switchToHierarchicalMode(urlState.year);
+          if (urlState.path) {
+            gallery.currentPath = urlState.path.split('/');
+            gallery.render();
+            gallery.updateBreadcrumb();
+            gallery.updateURL();
+          }
         }
         if (urlState.query) {
           searchInput.value = urlState.query;

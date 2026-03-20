@@ -434,12 +434,14 @@ class Gallery {
     this.currentPath = folderPath.split('/');
     this.render();
     this.updateBreadcrumb();
+    this.updateURL();
   }
 
   navigateBack(depth) {
     this.currentPath = this.currentPath.slice(0, depth);
     this.render();
     this.updateBreadcrumb();
+    this.updateURL();
   }
 
   switchToHierarchicalMode(year) {
@@ -469,6 +471,7 @@ class Gallery {
     const params = new URLSearchParams();
     if (this.selectedYear) params.set('year', this.selectedYear);
     if (this.searchQuery) params.set('q', this.searchQuery);
+    if (this.currentPath.length > 1) params.set('path', this.currentPath.join('/'));
     const newURL = params.toString() ? `?${params.toString()}` : window.location.pathname;
     window.history.replaceState({}, '', newURL);
   }
@@ -478,6 +481,7 @@ class Gallery {
     return {
       year: params.get('year'),
       query: params.get('q'),
+      path: params.get('path'),
       hash: window.location.hash.replace('#', ''),
     };
   }
