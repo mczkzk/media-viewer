@@ -110,9 +110,14 @@ npm install
   - Year index: Auto-thins based on screen height, syncs with scroll
   - Folder extraction: Builds virtual folder tree from flat `path` field
 
+- **VirtualScroll (public/js/virtual-scroll.js)**:
+  - Renders only visible rows to minimize DOM elements
+  - Manages row recycling and scroll-based rendering
+
 - **Lightbox (public/js/lightbox.js)**:
   - Full-screen image/video viewer
-  - Arrow key navigation
+  - Arrow key navigation, Escape to close
+  - Info panel toggled via (i) button (no dedicated close button)
   - Uses `filteredItems` for navigation order
 
 - **Kana Converter (public/js/kana-converter.js)**:
