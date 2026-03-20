@@ -128,7 +128,18 @@ class Gallery {
   renderFolderCard(folder) {
     return `
       <div class="grid-item folder" data-folder-path="${folder.path}">
-        <div class="folder-icon">📁</div>
+        <div class="folder-icon">
+          <svg width="64" height="54" viewBox="0 0 64 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 8C2 5.79 3.79 4 6 4h16l6 6h30c2.21 0 4 1.79 4 4v2H2V8z" fill="#5AB0F7"/>
+            <rect x="2" y="14" width="60" height="36" rx="3" fill="url(#folderGrad)"/>
+            <defs>
+              <linearGradient id="folderGrad" x1="32" y1="14" x2="32" y2="50" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#5AB0F7"/>
+                <stop offset="1" stop-color="#3D8CE4"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
         <div class="folder-name">${folder.name}</div>
         <div class="folder-count">${folder.itemCount}件</div>
       </div>
