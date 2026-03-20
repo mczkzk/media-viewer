@@ -444,10 +444,10 @@ class Gallery {
     this.updateURL();
   }
 
-  switchToHierarchicalMode(year) {
+  switchToHierarchicalMode(year, initialPath = null) {
     this.displayMode = 'hierarchical';
     this.selectedYear = year;
-    this.currentPath = [year];
+    this.currentPath = initialPath ? initialPath.split('/') : [year];
     this.applyFilters();
     this.updateBreadcrumb();
     this.updateURL();
