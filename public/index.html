@@ -145,20 +145,7 @@
 
         // Update stats
         function updateStats() {
-          let items;
-          if (gallery.displayMode === 'hierarchical') {
-            // All files under current path (including subfolders)
-            const depth = gallery.currentPath.length;
-            items = gallery.filteredItems.filter(item => {
-              const parts = item.path.split('/');
-              return gallery.currentPath.every((p, i) => parts[i] === p);
-            });
-          } else {
-            items = gallery.filteredItems;
-          }
-          const total = items.length;
-          const images = items.filter(item => item.type === 'image').length;
-          const videos = items.filter(item => item.type === 'video').length;
+          const { total, images, videos } = gallery.getStats();
           statsText.textContent = `全${total}件（写真${images}、動画${videos}）`;
         }
 
@@ -192,9 +179,7 @@
         const thumbnailSize = document.getElementById('thumbnail-size');
         thumbnailSize.addEventListener('change', (e) => {
           galleryContainer.className = 'gallery-container size-' + e.target.value;
-          if (gallery._vscroller) {
-            gallery._vscroller.rebuild(gallery.filteredItems, gallery.getYearCounts(gallery.filteredItems));
-          }
+          gallery.rebuildLayout();
         });
 
         // Rescan button handler

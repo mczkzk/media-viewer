@@ -226,38 +226,6 @@ function toRomaji(text) {
   return result;
 }
 
-/**
- * Check if text contains Hiragana
- */
-function hasHiragana(text) {
-  return Array.from(text).some(char => {
-    const code = char.charCodeAt(0);
-    return code >= HIRAGANA_START && code <= HIRAGANA_END;
-  });
-}
-
-/**
- * Check if text contains Katakana
- */
-function hasKatakana(text) {
-  return Array.from(text).some(char => {
-    const code = char.charCodeAt(0);
-    return code >= KATAKANA_START && code <= KATAKANA_START + (HIRAGANA_END - HIRAGANA_START);
-  });
-}
-
-/**
- * Check if text contains Kanji
- */
-function hasKanji(text) {
-  const KANJI_START = 0x4E00;
-  const KANJI_END = 0x9FAF;
-  return Array.from(text).some(char => {
-    const code = char.charCodeAt(0);
-    return code >= KANJI_START && code <= KANJI_END;
-  });
-}
-
 // Export functions
 window.KanaConverter = {
   toHiragana,
@@ -265,7 +233,4 @@ window.KanaConverter = {
   toRomaji,
   hiraganaToKatakana,
   katakanaToHiragana,
-  hasHiragana,
-  hasKatakana,
-  hasKanji,
 };

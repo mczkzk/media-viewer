@@ -98,8 +98,7 @@ class Gallery {
       if (item.type === 'folder') {
         return this.renderFolderCard(item);
       } else {
-        const actualIndex = this.filteredItems.indexOf(item);
-        return this.renderMediaCard(item, actualIndex);
+        return this.renderMediaCard(item, item._filteredIndex);
       }
     }).join('');
 
@@ -182,6 +181,12 @@ class Gallery {
           }
         });
         if (batcher.pending.length > 0) batcher.schedule();
+      }).catch(err => {
+        console.error('Thumbnail batch failed:', err);
+        batch.forEach(img => {
+          img.parentElement.classList.add('error');
+          img.parentElement.classList.remove('loading');
+        });
       });
     };
   }
@@ -268,49 +273,52 @@ class Gallery {
   }
 
   applyFilters() {
+    const queryVariants = this.searchQuery ? this._buildQueryVariants(this.searchQuery) : null;
     this.filteredItems = this.mediaItems.filter(item => {
       const matchesYear = !this.selectedYear || item.year === this.selectedYear;
-      if (!this.searchQuery) return matchesYear;
-      return matchesYear && this.multiFormatSearch(this.searchQuery, item);
+      if (!queryVariants) return matchesYear;
+      return matchesYear && this._matchesQuery(queryVariants, item);
     });
 
     this.sortFilteredItems();
     this.render();
   }
 
-  // Search across original text, romaji, hiragana, and katakana using pre-converted fields
-  multiFormatSearch(query, item) {
-    if (!window.KanaConverter) {
-      return item.event.toLowerCase().includes(query)
-        || item.filename.toLowerCase().includes(query)
-        || item.path.toLowerCase().includes(query);
-    }
-
-    const converter = window.KanaConverter;
+  _buildQueryVariants(query) {
     const queryLower = query.toLowerCase();
-    const queryRomaji = converter.toRomaji(query).toLowerCase();
-    const queryHiragana = converter.toHiragana(query);
-    const queryKatakana = converter.toKatakana(query);
+    if (!window.KanaConverter) return { queryLower };
+    const converter = window.KanaConverter;
+    return {
+      queryLower,
+      queryRomaji: converter.toRomaji(query).toLowerCase(),
+      queryHiragana: converter.toHiragana(query),
+      queryKatakana: converter.toKatakana(query),
+    };
+  }
 
+  // Search across original text, romaji, hiragana, and katakana using pre-converted fields
+  _matchesQuery(q, item) {
     // Direct match
-    if (item.event.toLowerCase().includes(queryLower)) return true;
-    if (item.filename.toLowerCase().includes(queryLower)) return true;
-    if (item.path.toLowerCase().includes(queryLower)) return true;
+    if (item.event.toLowerCase().includes(q.queryLower)) return true;
+    if (item.filename.toLowerCase().includes(q.queryLower)) return true;
+    if (item.path.toLowerCase().includes(q.queryLower)) return true;
+
+    if (!q.queryRomaji) return false;
 
     // Romaji
-    if (item._pathRomaji && item._pathRomaji.includes(queryRomaji)) return true;
-    if (item._eventRomaji && item._eventRomaji.includes(queryRomaji)) return true;
-    if (item._filenameRomaji && item._filenameRomaji.includes(queryRomaji)) return true;
+    if (item._pathRomaji && item._pathRomaji.includes(q.queryRomaji)) return true;
+    if (item._eventRomaji && item._eventRomaji.includes(q.queryRomaji)) return true;
+    if (item._filenameRomaji && item._filenameRomaji.includes(q.queryRomaji)) return true;
 
     // Hiragana
-    if (item._pathHiragana && item._pathHiragana.includes(queryHiragana)) return true;
-    if (item._eventHiragana && item._eventHiragana.includes(queryHiragana)) return true;
-    if (item._filenameHiragana && item._filenameHiragana.includes(queryHiragana)) return true;
+    if (item._pathHiragana && item._pathHiragana.includes(q.queryHiragana)) return true;
+    if (item._eventHiragana && item._eventHiragana.includes(q.queryHiragana)) return true;
+    if (item._filenameHiragana && item._filenameHiragana.includes(q.queryHiragana)) return true;
 
     // Katakana
-    if (item._pathKatakana && item._pathKatakana.includes(queryKatakana)) return true;
-    if (item._eventKatakana && item._eventKatakana.includes(queryKatakana)) return true;
-    if (item._filenameKatakana && item._filenameKatakana.includes(queryKatakana)) return true;
+    if (item._pathKatakana && item._pathKatakana.includes(q.queryKatakana)) return true;
+    if (item._eventKatakana && item._eventKatakana.includes(q.queryKatakana)) return true;
+    if (item._filenameKatakana && item._filenameKatakana.includes(q.queryKatakana)) return true;
 
     return false;
   }
@@ -335,14 +343,10 @@ class Gallery {
     this.sortItems();
     this.sortFilteredItems();
     this.render();
-
-    if (this.displayMode === 'flat') {
-      this.updateYearIndex();
-    }
   }
 
-  getYears() {
-    const years = new Set(this.mediaItems.map(item => item.year));
+  getYears(items = this.mediaItems) {
+    const years = new Set(items.map(item => item.year));
     return Array.from(years).sort((a, b) =>
       this.sortOrder === 'desc' ? b.localeCompare(a) : a.localeCompare(b)
     );
@@ -360,66 +364,41 @@ class Gallery {
     return this.filteredItems[index];
   }
 
-  extractFoldersAtCurrentPath() {
+  buildCurrentViewItems() {
     const folders = new Map();
+    const files = [];
     const currentDepth = this.currentPath.length;
 
-    this.filteredItems.forEach(item => {
+    this.filteredItems.forEach((item, filteredIndex) => {
       const pathParts = item.path.split('/');
 
-      if (currentDepth > 0) {
-        const matchesCurrentPath = this.currentPath.every((part, i) =>
-          pathParts[i] === part
-        );
-        if (!matchesCurrentPath) return;
+      if (currentDepth > 0 && !this.currentPath.every((part, i) => pathParts[i] === part)) {
+        return;
       }
 
       if (pathParts.length <= currentDepth) return;
-      const nextPart = pathParts[currentDepth];
-      const isFolder = pathParts.length > currentDepth + 1;
 
-      if (isFolder && !folders.has(nextPart)) {
-        const folderPath = [...this.currentPath, nextPart].join('/');
+      if (pathParts.length === currentDepth + 1) {
+        item._filteredIndex = filteredIndex;
+        files.push(item);
+        return;
+      }
+
+      const nextPart = pathParts[currentDepth];
+      if (!folders.has(nextPart)) {
         folders.set(nextPart, {
           type: 'folder',
           name: nextPart,
-          path: folderPath,
+          path: [...this.currentPath, nextPart].join('/'),
           year: item.year,
           event: item.event,
           itemCount: 0
         });
       }
-
-      if (isFolder) {
-        folders.get(nextPart).itemCount++;
-      }
+      folders.get(nextPart).itemCount++;
     });
 
-    return Array.from(folders.values());
-  }
-
-  extractFilesAtCurrentPath() {
-    const currentDepth = this.currentPath.length;
-
-    return this.filteredItems.filter(item => {
-      const pathParts = item.path.split('/');
-
-      if (currentDepth > 0) {
-        const matchesCurrentPath = this.currentPath.every((part, i) =>
-          pathParts[i] === part
-        );
-        if (!matchesCurrentPath) return false;
-      }
-
-      return pathParts.length === currentDepth + 1;
-    });
-  }
-
-  buildCurrentViewItems() {
-    const folders = this.extractFoldersAtCurrentPath();
-    const files = this.extractFilesAtCurrentPath();
-    const allItems = [...folders, ...files];
-
+    const allItems = [...folders.values(), ...files];
     allItems.sort((a, b) => {
       const nameA = a.type === 'folder' ? a.name : a.filename;
       const nameB = b.type === 'folder' ? b.name : b.filename;
@@ -543,6 +522,30 @@ class Gallery {
     });
   }
 
+  rebuildLayout() {
+    if (this._vscroller) {
+      this._vscroller.rebuild(this.filteredItems, this.getYearCounts(this.filteredItems));
+    }
+  }
+
+  getStats() {
+    let items;
+    if (this.displayMode === 'hierarchical') {
+      items = this.filteredItems.filter(item => {
+        const parts = item.path.split('/');
+        return this.currentPath.every((p, i) => parts[i] === p);
+      });
+    } else {
+      items = this.filteredItems;
+    }
+    let images = 0, videos = 0;
+    for (const item of items) {
+      if (item.type === 'image') images++;
+      else if (item.type === 'video') videos++;
+    }
+    return { total: items.length, images, videos };
+  }
+
   updateYearIndex() {
     const yearIndex = document.getElementById('year-index');
     if (!yearIndex) return;
@@ -554,9 +557,7 @@ class Gallery {
 
     yearIndex.style.display = 'flex';
 
-    const allYears = [...new Set(this.filteredItems.map(item => item.year))].sort((a, b) =>
-      this.sortOrder === 'desc' ? b.localeCompare(a) : a.localeCompare(b)
-    );
+    const allYears = this.getYears(this.filteredItems);
 
     // Calculate how many years fit on screen, thin out if needed
     const availableHeight = window.innerHeight - 140 - 20 - 30;

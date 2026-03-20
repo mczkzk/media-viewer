@@ -19,8 +19,10 @@ class TauriApp {
     }
 
     if (this.mediaBasePath) {
-      this.thumbnailCacheDir = await window.__TAURI__.core.invoke('get_thumbnail_cache_dir');
-      this.videoServerPort = await window.__TAURI__.core.invoke('get_video_server_port');
+      [this.thumbnailCacheDir, this.videoServerPort] = await Promise.all([
+        window.__TAURI__.core.invoke('get_thumbnail_cache_dir'),
+        window.__TAURI__.core.invoke('get_video_server_port'),
+      ]);
     }
   }
 
