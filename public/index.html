@@ -74,6 +74,7 @@
   <!-- Scripts -->
   <script src="/js/tauri-app.js"></script>
   <script src="/js/kana-converter.js"></script>
+  <script src="/js/virtual-scroll.js"></script>
   <script src="/js/gallery.js"></script>
   <script src="/js/lightbox.js"></script>
   <script>
@@ -192,6 +193,9 @@
         const thumbnailSize = document.getElementById('thumbnail-size');
         thumbnailSize.addEventListener('change', (e) => {
           galleryContainer.className = 'gallery-container size-' + e.target.value;
+          if (gallery._vscroller) {
+            gallery._vscroller.rebuild(gallery.filteredItems, gallery.getYearCounts(gallery.filteredItems));
+          }
         });
 
         // Rescan button handler

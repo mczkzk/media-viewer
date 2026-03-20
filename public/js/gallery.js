@@ -67,40 +67,23 @@ class Gallery {
 
   renderFlat() {
     if (this.filteredItems.length === 0) {
+      this._destroyVirtualScroller();
       this.container.innerHTML = '<div class="loading-message">メディアが見つかりません</div>';
       return;
     }
 
-    const yearCounts = this.getYearCounts();
-    let currentYear = null;
-    const html = this.filteredItems.map((item, index) => {
-      const videoClass = item.type === 'video' ? 'video' : '';
-
-      let yearDivider = '';
-      if (item.year !== currentYear) {
-        currentYear = item.year;
-        const count = yearCounts[item.year] || 0;
-        yearDivider = `<div class="year-divider" data-year="${item.year}">${item.year} <span class="year-count">(${count}件)</span></div>`;
-      }
-
-      const thumbSrc = this.getThumbnailUrl(item);
-      return yearDivider + `
-        <div class="grid-item ${videoClass} loading" data-index="${index}">
-          <img src="${thumbSrc}"
-               data-path="${item.path}"
-               alt="${item.filename}"
-               loading="lazy"
-               onload="this.parentElement.classList.remove('loading');this.parentElement.classList.remove('error')"
-               onerror="if(this.src && !window.__TAURI__){this.parentElement.classList.add('error');this.parentElement.classList.remove('loading')}">
-          <div class="caption">${this.getDisplayCaption(item)}</div>
-        </div>
-      `;
-    }).join('');
-
-    this.container.innerHTML = html;
-    this.attachClickHandlers();
+    if (!this._vscroller) {
+      this._vscroller = new VirtualScroller(this.container, this);
+    }
+    this._vscroller.rebuild(this.filteredItems, this.getYearCounts(this.filteredItems));
     this.updateYearIndex();
-    this.loadTauriThumbnails();
+  }
+
+  _destroyVirtualScroller() {
+    if (this._vscroller) {
+      this._vscroller.destroy();
+      this._vscroller = null;
+    }
   }
 
   renderHierarchical() {
@@ -171,24 +154,25 @@ class Gallery {
 
   // Cached thumbnails load directly via HTTP. On 404 (cache miss),
   // images are batched and generated via IPC, then retried.
-  loadTauriThumbnails() {
-    if (!this.tauriApp || !this.tauriApp.isTauri) return;
+  _initThumbnailBatcher() {
+    if (this._thumbBatcher) return;
+    this._thumbBatcher = {
+      pending: [],
+      timer: null,
+    };
+    const batcher = this._thumbBatcher;
 
-    let pendingBatch = [];
-    let batchTimer = null;
-
-    const scheduleBatch = () => {
-      if (batchTimer) return;
-      batchTimer = setTimeout(() => {
-        batchTimer = null;
-        processBatch();
+    batcher.schedule = () => {
+      if (batcher.timer) return;
+      batcher.timer = setTimeout(() => {
+        batcher.timer = null;
+        batcher.process();
       }, 200);
     };
 
-    const processBatch = () => {
-      if (pendingBatch.length === 0) return;
-
-      const batch = pendingBatch.splice(0, 20);
+    batcher.process = () => {
+      if (batcher.pending.length === 0) return;
+      const batch = batcher.pending.splice(0, 20);
       const paths = batch.map(img => img.dataset.path);
 
       this.tauriApp.batchEnsureThumbnails(paths).then(results => {
@@ -197,11 +181,20 @@ class Gallery {
             img.src = this.tauriApp.thumbnailUrl(img.dataset.path) + '?t=' + Date.now();
           }
         });
-        if (pendingBatch.length > 0) scheduleBatch();
+        if (batcher.pending.length > 0) batcher.schedule();
       });
     };
+  }
+
+  loadTauriThumbnails() {
+    if (!this.tauriApp || !this.tauriApp.isTauri) return;
+    this._initThumbnailBatcher();
+    const batcher = this._thumbBatcher;
 
     this.container.querySelectorAll('img[data-path]').forEach(img => {
+      if (img.dataset.thumbHandled) return;
+      img.dataset.thumbHandled = 'true';
+
       img.addEventListener('load', function() {
         this.parentElement.classList.remove('loading');
         this.parentElement.classList.remove('error');
@@ -210,9 +203,7 @@ class Gallery {
         img.parentElement.classList.remove('loading');
         img.parentElement.classList.remove('error');
       }
-    });
 
-    this.container.querySelectorAll('img[data-path]').forEach(img => {
       img.onerror = function() {
         if (this.dataset.retried) {
           this.parentElement.classList.add('error');
@@ -220,17 +211,15 @@ class Gallery {
           return;
         }
         this.dataset.retried = 'true';
-        pendingBatch.push(this);
-        scheduleBatch();
+        batcher.pending.push(this);
+        batcher.schedule();
       };
-      // Pick up images that already failed before this handler was set
       if (img.complete && img.naturalWidth === 0 && !img.dataset.retried) {
         img.dataset.retried = 'true';
-        pendingBatch.push(img);
+        batcher.pending.push(img);
       }
     });
-    // Kick off batch for already-failed images
-    if (pendingBatch.length > 0) scheduleBatch();
+    if (batcher.pending.length > 0) batcher.schedule();
   }
 
   getMediaUrl(item) {
@@ -359,9 +348,9 @@ class Gallery {
     );
   }
 
-  getYearCounts() {
+  getYearCounts(items = this.mediaItems) {
     const counts = {};
-    this.mediaItems.forEach(item => {
+    items.forEach(item => {
       counts[item.year] = (counts[item.year] || 0) + 1;
     });
     return counts;
@@ -456,6 +445,7 @@ class Gallery {
   }
 
   switchToHierarchicalMode(year, initialPath = null) {
+    this._destroyVirtualScroller();
     this.displayMode = 'hierarchical';
     this.selectedYear = year;
     this.currentPath = initialPath ? initialPath.split('/') : [year];
@@ -498,10 +488,19 @@ class Gallery {
   }
 
   scrollToYear(year) {
+    const header = document.querySelector('.header');
+    const headerHeight = header ? header.offsetHeight : 0;
+
+    if (this._vscroller) {
+      const top = this._vscroller.getYearTop(year);
+      if (top !== null) {
+        window.scrollTo({ top: top - headerHeight, behavior: 'smooth' });
+        return;
+      }
+    }
+
     const yearDivider = document.querySelector(`.year-divider[data-year="${year}"]`);
     if (yearDivider) {
-      const header = document.querySelector('.header');
-      const headerHeight = header ? header.offsetHeight : 0;
       const targetPosition = yearDivider.offsetTop - headerHeight;
       window.scrollTo({ top: targetPosition, behavior: 'smooth' });
     }
@@ -606,18 +605,22 @@ class Gallery {
   updateActiveYear() {
     if (this.displayMode !== 'flat') return;
 
-    const yearDividers = document.querySelectorAll('.year-divider[data-year]');
     const yearIndexItems = document.querySelectorAll('.year-index-item');
 
     const handleScroll = () => {
       const scrollPos = window.scrollY + 150;
-
       let activeYear = null;
-      yearDividers.forEach(divider => {
-        if (scrollPos >= divider.offsetTop) {
-          activeYear = divider.dataset.year;
+
+      if (this._vscroller) {
+        const yearTops = this._vscroller.getYearTops();
+        for (const [year, top] of yearTops) {
+          if (scrollPos >= top) activeYear = year;
         }
-      });
+      } else {
+        document.querySelectorAll('.year-divider[data-year]').forEach(divider => {
+          if (scrollPos >= divider.offsetTop) activeYear = divider.dataset.year;
+        });
+      }
 
       yearIndexItems.forEach(item => {
         item.classList.toggle('active', item.dataset.year === activeYear);
