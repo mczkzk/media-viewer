@@ -194,7 +194,7 @@
         thumbnailSize.addEventListener('change', (e) => {
           galleryContainer.className = 'gallery-container size-' + e.target.value;
           if (gallery._vscroller) {
-            gallery._vscroller.rebuild(gallery.filteredItems, gallery.getYearCounts());
+            gallery._vscroller.rebuild(gallery.filteredItems, gallery.getYearCounts(gallery.filteredItems));
           }
         });
 

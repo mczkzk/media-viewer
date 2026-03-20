@@ -144,7 +144,6 @@ class VirtualScroller {
 
     if (start === this.renderedRange.start && end === this.renderedRange.end) return;
 
-    // Remove out-of-range rows
     for (const [idx, el] of this._domPool) {
       if (idx < start || idx > end) {
         el.remove();
@@ -152,7 +151,6 @@ class VirtualScroller {
       }
     }
 
-    // Add new rows
     const fragment = document.createDocumentFragment();
     for (let i = start; i <= end; i++) {
       if (this._domPool.has(i)) continue;
@@ -180,7 +178,6 @@ class VirtualScroller {
       return el;
     }
 
-    // Items row
     el.className = 'vscroll-row';
     el.style.display = 'grid';
     el.style.gridTemplateColumns = this._gridTemplate;
@@ -192,7 +189,6 @@ class VirtualScroller {
 
     el.innerHTML = html;
 
-    // Click handlers
     el.querySelectorAll('.grid-item').forEach(gridItem => {
       gridItem.addEventListener('click', () => {
         const index = parseInt(gridItem.dataset.index);
@@ -238,7 +234,7 @@ class VirtualScroller {
       const prevItemSize = this.itemSize;
       this._measureGrid();
       if (this.cols !== prevCols || Math.abs(this.itemSize - prevItemSize) > 1) {
-        this.rebuild(this.gallery.filteredItems, this.gallery.getYearCounts());
+        this.rebuild(this.gallery.filteredItems, this.gallery.getYearCounts(this.gallery.filteredItems));
       } else {
         this._calcTops();
         this.container.classList.add('vscroll-active');
@@ -271,6 +267,7 @@ class VirtualScroller {
     window.removeEventListener('scroll', this._onScroll);
     window.removeEventListener('resize', this._onResize);
     if (this._thumbTimer) clearTimeout(this._thumbTimer);
+    if (this._resizeTimer) clearTimeout(this._resizeTimer);
     this._clearDOM();
     this.container.classList.remove('vscroll-active');
     this.container.style.height = '';

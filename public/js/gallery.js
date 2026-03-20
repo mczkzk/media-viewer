@@ -75,7 +75,7 @@ class Gallery {
     if (!this._vscroller) {
       this._vscroller = new VirtualScroller(this.container, this);
     }
-    this._vscroller.rebuild(this.filteredItems, this.getYearCounts());
+    this._vscroller.rebuild(this.filteredItems, this.getYearCounts(this.filteredItems));
     this.updateYearIndex();
   }
 
@@ -154,24 +154,25 @@ class Gallery {
 
   // Cached thumbnails load directly via HTTP. On 404 (cache miss),
   // images are batched and generated via IPC, then retried.
-  loadTauriThumbnails() {
-    if (!this.tauriApp || !this.tauriApp.isTauri) return;
+  _initThumbnailBatcher() {
+    if (this._thumbBatcher) return;
+    this._thumbBatcher = {
+      pending: [],
+      timer: null,
+    };
+    const batcher = this._thumbBatcher;
 
-    let pendingBatch = [];
-    let batchTimer = null;
-
-    const scheduleBatch = () => {
-      if (batchTimer) return;
-      batchTimer = setTimeout(() => {
-        batchTimer = null;
-        processBatch();
+    batcher.schedule = () => {
+      if (batcher.timer) return;
+      batcher.timer = setTimeout(() => {
+        batcher.timer = null;
+        batcher.process();
       }, 200);
     };
 
-    const processBatch = () => {
-      if (pendingBatch.length === 0) return;
-
-      const batch = pendingBatch.splice(0, 20);
+    batcher.process = () => {
+      if (batcher.pending.length === 0) return;
+      const batch = batcher.pending.splice(0, 20);
       const paths = batch.map(img => img.dataset.path);
 
       this.tauriApp.batchEnsureThumbnails(paths).then(results => {
@@ -180,11 +181,20 @@ class Gallery {
             img.src = this.tauriApp.thumbnailUrl(img.dataset.path) + '?t=' + Date.now();
           }
         });
-        if (pendingBatch.length > 0) scheduleBatch();
+        if (batcher.pending.length > 0) batcher.schedule();
       });
     };
+  }
+
+  loadTauriThumbnails() {
+    if (!this.tauriApp || !this.tauriApp.isTauri) return;
+    this._initThumbnailBatcher();
+    const batcher = this._thumbBatcher;
 
     this.container.querySelectorAll('img[data-path]').forEach(img => {
+      if (img.dataset.thumbHandled) return;
+      img.dataset.thumbHandled = 'true';
+
       img.addEventListener('load', function() {
         this.parentElement.classList.remove('loading');
         this.parentElement.classList.remove('error');
@@ -201,17 +211,15 @@ class Gallery {
           return;
         }
         this.dataset.retried = 'true';
-        pendingBatch.push(this);
-        scheduleBatch();
+        batcher.pending.push(this);
+        batcher.schedule();
       };
-      // Pick up images that already failed before this handler was set
       if (img.complete && img.naturalWidth === 0 && !img.dataset.retried) {
         img.dataset.retried = 'true';
-        pendingBatch.push(img);
+        batcher.pending.push(img);
       }
     });
-    // Kick off batch for already-failed images
-    if (pendingBatch.length > 0) scheduleBatch();
+    if (batcher.pending.length > 0) batcher.schedule();
   }
 
   getMediaUrl(item) {
@@ -340,9 +348,9 @@ class Gallery {
     );
   }
 
-  getYearCounts() {
+  getYearCounts(items = this.mediaItems) {
     const counts = {};
-    this.mediaItems.forEach(item => {
+    items.forEach(item => {
       counts[item.year] = (counts[item.year] || 0) + 1;
     });
     return counts;
