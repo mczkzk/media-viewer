@@ -211,7 +211,14 @@ class Gallery {
         pendingBatch.push(this);
         scheduleBatch();
       };
+      // Pick up images that already failed before this handler was set
+      if (img.complete && img.naturalWidth === 0 && !img.dataset.retried) {
+        img.dataset.retried = 'true';
+        pendingBatch.push(img);
+      }
     });
+    // Kick off batch for already-failed images
+    if (pendingBatch.length > 0) scheduleBatch();
   }
 
   getMediaUrl(item) {
@@ -488,7 +495,7 @@ class Gallery {
     const breadcrumb = document.getElementById('breadcrumb');
     if (!breadcrumb) return;
 
-    if (this.displayMode === 'flat' || this.currentPath.length <= 1) {
+    if (this.displayMode === 'flat') {
       breadcrumb.style.display = 'none';
       return;
     }
@@ -496,10 +503,10 @@ class Gallery {
     breadcrumb.style.display = 'flex';
 
     const items = [
-      `<span class="breadcrumb-item" data-depth="1">📁 ${this.selectedYear}</span>`
+      `<span class="breadcrumb-item" data-action="all">All</span>`
     ];
 
-    for (let i = 1; i < this.currentPath.length; i++) {
+    for (let i = 0; i < this.currentPath.length; i++) {
       const part = this.currentPath[i];
       const depth = i + 1;
       items.push(`<span class="breadcrumb-separator"></span>`);
@@ -508,7 +515,12 @@ class Gallery {
 
     breadcrumb.innerHTML = items.join('');
 
-    breadcrumb.querySelectorAll('.breadcrumb-item').forEach(item => {
+    breadcrumb.querySelector('[data-action="all"]').addEventListener('click', () => {
+      document.getElementById('year-filter').value = '';
+      this.switchToFlatMode();
+    });
+
+    breadcrumb.querySelectorAll('[data-depth]').forEach(item => {
       item.addEventListener('click', () => {
         const depth = parseInt(item.dataset.depth);
         this.navigateBack(depth);
