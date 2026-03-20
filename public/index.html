@@ -141,14 +141,25 @@
 
         // Update stats
         function updateStats() {
-          const total = gallery.filteredItems.length;
-          const images = gallery.filteredItems.filter(item => item.type === 'image').length;
-          const videos = gallery.filteredItems.filter(item => item.type === 'video').length;
+          let items;
+          if (gallery.displayMode === 'hierarchical') {
+            // All files under current path (including subfolders)
+            const depth = gallery.currentPath.length;
+            items = gallery.filteredItems.filter(item => {
+              const parts = item.path.split('/');
+              return gallery.currentPath.every((p, i) => parts[i] === p);
+            });
+          } else {
+            items = gallery.filteredItems;
+          }
+          const total = items.length;
+          const images = items.filter(item => item.type === 'image').length;
+          const videos = items.filter(item => item.type === 'video').length;
           statsText.textContent = `全${total}件（写真${images}、動画${videos}）`;
         }
 
         updateStats();
-
+        gallery.onRender = updateStats;
 
         // Year filter handler
         yearFilter.addEventListener('change', (e) => {

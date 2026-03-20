@@ -62,6 +62,7 @@ class Gallery {
     } else {
       this.renderHierarchical();
     }
+    if (this.onRender) this.onRender();
   }
 
   renderFlat() {
