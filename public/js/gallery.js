@@ -193,9 +193,7 @@ class Gallery {
         img.parentElement.classList.remove('loading');
         img.parentElement.classList.remove('error');
       }
-    });
 
-    this.container.querySelectorAll('img[data-path]').forEach(img => {
       img.onerror = function() {
         if (this.dataset.retried) {
           this.parentElement.classList.add('error');

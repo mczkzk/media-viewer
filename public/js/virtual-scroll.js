@@ -27,7 +27,10 @@ class VirtualScroller {
 
   rebuild(filteredItems, yearCounts) {
     this._measureGrid();
-    this._measureDividerHeight();
+    if (!this._dividerMeasured) {
+      this._measureDividerHeight();
+      this._dividerMeasured = true;
+    }
     this.rows = this._buildRows(filteredItems, yearCounts);
     this._calcTops();
     this.container.classList.add('vscroll-active');
@@ -167,25 +170,18 @@ class VirtualScroller {
     const row = this.rows[rowIndex];
     const top = this.tops[rowIndex];
 
+    const el = document.createElement('div');
+    this._positionRow(el, top);
+
     if (row.type === 'divider') {
-      const el = document.createElement('div');
       el.className = 'year-divider vscroll-row';
       el.dataset.year = row.year;
-      el.style.position = 'absolute';
-      el.style.top = top + 'px';
-      el.style.left = this._containerPadding + 'px';
-      el.style.right = this._containerPadding + 'px';
       el.innerHTML = `${row.year} <span class="year-count">(${row.count}件)</span>`;
       return el;
     }
 
     // Items row
-    const el = document.createElement('div');
     el.className = 'vscroll-row';
-    el.style.position = 'absolute';
-    el.style.top = top + 'px';
-    el.style.left = this._containerPadding + 'px';
-    el.style.right = this._containerPadding + 'px';
     el.style.display = 'grid';
     el.style.gridTemplateColumns = this._gridTemplate;
     el.style.gap = this.gap + 'px';
@@ -205,6 +201,13 @@ class VirtualScroller {
     });
 
     return el;
+  }
+
+  _positionRow(el, top) {
+    el.style.position = 'absolute';
+    el.style.top = top + 'px';
+    el.style.left = this._containerPadding + 'px';
+    el.style.right = this._containerPadding + 'px';
   }
 
   _scheduleThumbnailLoad() {
