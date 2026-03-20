@@ -68,23 +68,35 @@ body {
 .rescan-btn {
   width: 40px;
   height: 40px;
-  min-height: 40px;
-  max-height: 40px;
   padding: 0;
   border: none;
+  border-radius: 6px;
   background: transparent;
-  font-size: 22px;
+  color: #666;
   cursor: pointer;
   outline: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.rescan-btn:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: #333;
+}
+
+.rescan-btn:active {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .rescan-btn.loading {
   pointer-events: none;
-  animation: spin 1s linear infinite;
+}
+
+.rescan-btn.loading svg {
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
