@@ -496,26 +496,6 @@ body {
   color: #333;
 }
 
-.info-panel-close {
-  background: none;
-  border: none;
-  font-size: 28px;
-  color: #666;
-  cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-.info-panel-close:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
 .info-panel-content {
   padding: 20px;
   color: #333;

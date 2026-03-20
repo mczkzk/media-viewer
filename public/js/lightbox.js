@@ -10,7 +10,6 @@ class Lightbox {
     this.info = document.getElementById('lightbox-info');
     this.infoBtn = document.getElementById('lightbox-info-btn');
     this.infoPanel = document.getElementById('lightbox-info-panel');
-    this.infoPanelClose = document.getElementById('info-panel-close');
     this.infoPanelContent = document.getElementById('info-panel-content');
 
     this.bindEvents();
@@ -25,7 +24,6 @@ class Lightbox {
     this.prevBtn.addEventListener('click', () => this.prev());
     this.nextBtn.addEventListener('click', () => this.next());
     this.infoBtn.addEventListener('click', () => this.toggleInfoPanel());
-    this.infoPanelClose.addEventListener('click', () => this.closeInfoPanel());
 
     document.addEventListener('keydown', (e) => {
       if (!this.modal.classList.contains('active')) return;
