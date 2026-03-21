@@ -1,3 +1,4 @@
+mod geo_dict;
 mod label_dict;
 mod scanner;
 mod tagger;

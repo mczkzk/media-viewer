@@ -93,39 +93,12 @@ fn classify_batch(paths: &[String]) -> Result<Vec<VisionResult>, String> {
     serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse vision-tagger output: {}", e))
 }
 
+use crate::geo_dict;
 use crate::label_dict;
 use crate::thumbnail;
 
-struct GeoResult {
-    en: String,
-    ja: String,
-}
-
-/// Reverse-geocode a single coordinate via Swift helper (CLGeocoder).
-fn reverse_geocode_one(lat: f64, lon: f64) -> Option<GeoResult> {
-    let geocoder = find_helper("reverse-geocoder")?;
-    let coord = format!("{},{}", lat, lon);
-
-    let output = Command::new(&geocoder)
-        .arg(&coord)
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let parsed: HashMap<String, String> = serde_json::from_str(&stdout).ok()?;
-    let ja = parsed.get("ja").cloned().unwrap_or_default();
-    let en = parsed.get("en").cloned().unwrap_or_default();
-
-    if ja.is_empty() && en.is_empty() {
-        return None;
-    }
-
-    Some(GeoResult { en, ja })
-}
+use std::io::{BufRead, BufReader, Write};
+use std::process::{Child, Stdio};
 
 const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mov", "avi", "m4v", "mkv"];
 
@@ -134,6 +107,112 @@ fn is_video(path: &str) -> bool {
         .next()
         .map(|ext| VIDEO_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
         .unwrap_or(false)
+}
+
+/// Distance in meters between two GPS coordinates (haversine).
+fn gps_distance(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
+    let r = 6_371_000.0; // Earth radius in meters
+    let dlat = (lat2 - lat1).to_radians();
+    let dlon = (lon2 - lon1).to_radians();
+    let a = (dlat / 2.0).sin().powi(2)
+        + lat1.to_radians().cos() * lat2.to_radians().cos() * (dlon / 2.0).sin().powi(2);
+    r * 2.0 * a.sqrt().asin()
+}
+
+struct GeocoderProcess {
+    child: Child,
+    last_lat: f64,
+    last_lon: f64,
+    last_result: String,
+}
+
+impl GeocoderProcess {
+    fn spawn() -> Option<Self> {
+        let geocoder_path = find_helper("reverse-geocoder")?;
+        let child = Command::new(&geocoder_path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .ok()?;
+        Some(Self {
+            child,
+            last_lat: f64::NAN,
+            last_lon: f64::NAN,
+            last_result: String::new(),
+        })
+    }
+
+    /// Geocode a coordinate. Reuses cached result if within 50m of last query.
+    fn geocode(&mut self, lat: f64, lon: f64) -> Option<String> {
+        // Skip if within 50m of last coordinate
+        if !self.last_lat.is_nan() && gps_distance(lat, lon, self.last_lat, self.last_lon) < 50.0 {
+            if !self.last_result.is_empty() {
+                return Some(self.last_result.clone());
+            }
+            return None;
+        }
+
+        let stdin = self.child.stdin.as_mut()?;
+        let stdout = self.child.stdout.as_mut()?;
+        let mut reader = BufReader::new(stdout);
+
+        let coord = format!("{},{}\n", lat, lon);
+        stdin.write_all(coord.as_bytes()).ok()?;
+        stdin.flush().ok()?;
+
+        let mut line = String::new();
+        reader.read_line(&mut line).ok()?;
+
+        let parsed: HashMap<String, String> = serde_json::from_str(line.trim()).ok()?;
+        let error = parsed.get("error").cloned().unwrap_or_default();
+        let ja = parsed.get("ja").cloned().unwrap_or_default();
+
+        self.last_lat = lat;
+        self.last_lon = lon;
+
+        if error == "rate_limit" {
+            // Back off 60 seconds on rate limit
+            eprintln!("Geocoder: rate limited, waiting 60s");
+            std::thread::sleep(std::time::Duration::from_secs(60));
+            self.last_result = String::new();
+            return None;
+        }
+
+        if ja.is_empty() {
+            self.last_result = String::new();
+            return None;
+        }
+
+        self.last_result = ja.clone();
+        Some(ja)
+    }
+
+    fn quit(&mut self) {
+        if let Some(stdin) = self.child.stdin.as_mut() {
+            let _ = stdin.write_all(b"quit\n");
+            let _ = stdin.flush();
+        }
+        let _ = self.child.wait();
+    }
+}
+
+/// Build EN+JA location tags from a Japanese location string.
+fn build_location_tags(ja_location: &str) -> Vec<String> {
+    let mut tags: Vec<String> = Vec::new();
+    for part in ja_location.split_whitespace() {
+        if !tags.contains(&part.to_string()) {
+            tags.push(part.to_string());
+        }
+        // Add English translation for prefectures
+        if let Some(en) = geo_dict::translate_prefecture(part) {
+            let en_str = en.to_string();
+            if !tags.contains(&en_str) {
+                tags.push(en_str);
+            }
+        }
+    }
+    tags
 }
 
 /// Tag a batch of images. Returns number of newly tagged images.
@@ -148,7 +227,6 @@ pub fn tag_images(
         .iter()
         .map(|p| {
             if is_video(p) {
-                // Use cached thumbnail for videos
                 let hash = thumbnail::hash_path(p);
                 let thumb = cache_dir.join(format!("{}.jpg", hash));
                 if thumb.exists() {
@@ -161,19 +239,24 @@ pub fn tag_images(
 
     let results = classify_batch(&full_paths)?;
 
-    // Extract GPS and reverse-geocode one at a time (1s interval to avoid rate limiting)
-    let mut location_map: HashMap<usize, GeoResult> = HashMap::new();
-    for (i, p) in paths.iter().enumerate() {
-        if !is_video(p) {
-            let full = PathBuf::from(base_path).join(p);
-            if let Some((lat, lon)) = thumbnail::get_gps(&full) {
-                if let Some(geo) = reverse_geocode_one(lat, lon) {
-                    location_map.insert(i, geo);
+    // Geocode GPS coordinates via persistent helper process
+    let mut location_map: HashMap<usize, Vec<String>> = HashMap::new();
+    let mut geocoder = GeocoderProcess::spawn();
+
+    if let Some(ref mut geo) = geocoder {
+        for (i, p) in paths.iter().enumerate() {
+            if !is_video(p) {
+                let full = PathBuf::from(base_path).join(p);
+                if let Some((lat, lon)) = thumbnail::get_gps(&full) {
+                    if let Some(ja_location) = geo.geocode(lat, lon) {
+                        location_map.insert(i, build_location_tags(&ja_location));
+                    }
+                    // Rate limit: 2 seconds between geocode requests
+                    std::thread::sleep(std::time::Duration::from_secs(2));
                 }
-                // Rate limit: 1 second between geocode requests
-                std::thread::sleep(std::time::Duration::from_secs(1));
             }
         }
+        geo.quit();
     }
 
     let mut tags = load_tags(app_data_dir);
@@ -201,13 +284,11 @@ pub fn tag_images(
             }
         }
 
-        // GPS location (JA + EN)
-        if let Some(geo) = location_map.get(&i) {
-            for loc_str in [&geo.ja, &geo.en] {
-                for part in loc_str.split_whitespace() {
-                    if !tag_set.contains(&part.to_string()) {
-                        tag_set.push(part.to_string());
-                    }
+        // GPS location tags (JA + EN prefecture)
+        if let Some(loc_tags) = location_map.get(&i) {
+            for tag in loc_tags {
+                if !tag_set.contains(tag) {
+                    tag_set.push(tag.clone());
                 }
             }
         }
