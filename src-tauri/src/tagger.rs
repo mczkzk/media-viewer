@@ -97,16 +97,38 @@ fn classify_batch(paths: &[String]) -> Result<Vec<Vec<String>>, String> {
 }
 
 use crate::label_dict;
+use crate::thumbnail;
+
+const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mov", "avi", "m4v", "mkv"];
+
+fn is_video(path: &str) -> bool {
+    path.rsplit('.')
+        .next()
+        .map(|ext| VIDEO_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
+        .unwrap_or(false)
+}
 
 /// Tag a batch of images. Returns number of newly tagged images.
+/// For videos, uses the cached thumbnail instead of the original file.
 pub fn tag_images(
     paths: &[String],
     base_path: &str,
     app_data_dir: &Path,
 ) -> Result<usize, String> {
+    let cache_dir = app_data_dir.join("cache").join("thumbnails");
     let full_paths: Vec<String> = paths
         .iter()
-        .map(|p| format!("{}/{}", base_path, p))
+        .map(|p| {
+            if is_video(p) {
+                // Use cached thumbnail for videos
+                let hash = thumbnail::hash_path(p);
+                let thumb = cache_dir.join(format!("{}.jpg", hash));
+                if thumb.exists() {
+                    return thumb.to_string_lossy().to_string();
+                }
+            }
+            format!("{}/{}", base_path, p)
+        })
         .collect();
 
     let results = classify_batch(&full_paths)?;

@@ -259,8 +259,7 @@
         // Background tagging
         if (tauriApp.isTauri) {
           const BATCH_SIZE = 20;
-          const imageItems = gallery.mediaItems.filter(i => i.type === 'image');
-          const untagged = imageItems.filter(i => !gallery.tagMap[i.path]);
+          const untagged = gallery.mediaItems.filter(i => !gallery.tagMap[i.path]);
 
           if (untagged.length > 0) {
             let tagged = 0;
