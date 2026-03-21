@@ -128,6 +128,61 @@ pub fn translate(en: &str) -> Vec<&'static str> {
         "Ishigaki" => vec!["石垣"],
         "Miyako" => vec!["宮古"],
 
+        // Tokyo wards / areas
+        "Chiyoda" => vec!["千代田"],
+        "Minato" => vec!["港区"],
+        "Chuo" => vec!["中央区"],
+        "Taito" => vec!["台東区"],
+        "Sumida" => vec!["墨田区"],
+        "Koto" => vec!["江東区"],
+        "Shinagawa" => vec!["品川区"],
+        "Meguro" => vec!["目黒区"],
+        "Setagaya" => vec!["世田谷区"],
+        "Nakano" => vec!["中野区"],
+        "Suginami" => vec!["杉並区"],
+        "Nerima" => vec!["練馬区"],
+        "Toshima" => vec!["豊島区"],
+        "Kita" => vec!["北区"],
+        "Itabashi" => vec!["板橋区"],
+        "Adachi" => vec!["足立区"],
+        "Edogawa" => vec!["江戸川区"],
+        "Bunkyo" => vec!["文京区"],
+        "Ota" => vec!["大田区"],
+        "Arakawa" => vec!["荒川区"],
+        "Marunouchi" => vec!["丸の内"],
+        "Takanawa" => vec!["高輪"],
+        "Akasaka" => vec!["赤坂"],
+
+        // Kyoto areas
+        "Higashiyama" => vec!["東山"],
+        "Nakagyo" => vec!["中京区"],
+        "Shimogyo" => vec!["下京区"],
+        "Kamigyo" => vec!["上京区"],
+        "Sakyo" => vec!["左京区"],
+        "Ukyo" => vec!["右京区"],
+
+        // Osaka areas
+        "Tennoji" => vec!["天王寺"],
+        "Nakanoshima" => vec!["中之島"],
+        "Naniwa" => vec!["浪速区"],
+
+        // Other notable places
+        "Aizuwakamatsu" => vec!["会津若松"],
+        "Towada" => vec!["十和田"],
+        "Hiraizumi" => vec!["平泉"],
+        "Miyanoshita" => vec!["宮ノ下"],
+        "Gamagori" => vec!["蒲郡"],
+        "Arimacho" | "Arima" => vec!["有馬"],
+        "Naoshima" => vec!["直島"],
+        "Kinosaki" => vec!["城崎"],
+        "Takeda" => vec!["竹田"],
+        "Tono" => vec!["遠野"],
+        "Kakunodate" => vec!["角館"],
+        "Gero" => vec!["下呂"],
+        "Tsumago" => vec!["妻籠"],
+        "Magome" => vec!["馬籠"],
+        "Wajima" => vec!["輪島"],
+
         _ => vec![],
     }
 }
