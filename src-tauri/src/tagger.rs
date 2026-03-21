@@ -69,8 +69,14 @@ fn find_vision_tagger() -> Option<PathBuf> {
 }
 
 /// Call the Swift vision-tagger helper for a batch of images.
-/// Returns Vec of label arrays (English), one per image.
-fn classify_batch(paths: &[String]) -> Result<Vec<Vec<String>>, String> {
+#[derive(Deserialize)]
+struct VisionResult {
+    labels: Vec<String>,
+    text: Vec<String>,
+}
+
+/// Returns Vec of VisionResult (labels + OCR text), one per image.
+fn classify_batch(paths: &[String]) -> Result<Vec<VisionResult>, String> {
     let tagger = find_vision_tagger().ok_or("vision-tagger binary not found")?;
 
     let output = Command::new(&tagger)
@@ -179,9 +185,11 @@ pub fn tag_images(
     let mut tags = load_tags(app_data_dir);
     let mut count = 0;
 
-    for (i, (rel_path, labels)) in paths.iter().zip(results.iter()).enumerate() {
+    for (i, (rel_path, vision)) in paths.iter().zip(results.iter()).enumerate() {
         let mut tag_set: Vec<String> = Vec::new();
-        for label in labels {
+
+        // Vision classification labels (EN + JA)
+        for label in &vision.labels {
             let ja = label_dict::translate(label);
             if !tag_set.contains(&label.to_string()) {
                 tag_set.push(label.to_string());
@@ -191,7 +199,15 @@ pub fn tag_images(
                 tag_set.push(ja_str);
             }
         }
-        // Add location tags from GPS (both JA and EN)
+
+        // OCR text
+        for text in &vision.text {
+            if !tag_set.contains(text) {
+                tag_set.push(text.clone());
+            }
+        }
+
+        // GPS location (JA + EN)
         if let Some(geo) = location_map.get(&i) {
             for loc_str in [&geo.ja, &geo.en] {
                 for part in loc_str.split_whitespace() {
