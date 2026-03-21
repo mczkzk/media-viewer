@@ -5,7 +5,7 @@ import CoreLocation
 // Persistent reverse-geocoder using MKReverseGeocodingRequest (macOS 26+).
 // Reads coordinates from stdin, writes results to stdout.
 // Input:  one "lat,lon" per line
-// Output: one JSON line per input: {"ja":"日本 長野県 軽井沢町","error":""}
+// Output: one JSON line per input: {"location":"日本 長野県 軽井沢町","error":""}
 // Send "quit" to exit.
 
 func writeResult(_ result: [String: String]) {
@@ -25,7 +25,7 @@ DispatchQueue.global().async {
         guard parts.count == 2,
               let lat = Double(parts[0]),
               let lon = Double(parts[1]) else {
-            writeResult(["ja": "", "error": "invalid"])
+            writeResult(["location": "", "error": "invalid"])
             continue
         }
 
@@ -34,14 +34,14 @@ DispatchQueue.global().async {
 
         DispatchQueue.main.async {
             guard let request = MKReverseGeocodingRequest(location: location) else {
-                writeResult(["ja": "", "error": "init_failed"])
+                writeResult(["location": "", "error": "init_failed"])
                 semaphore.signal()
                 return
             }
-            // System locale: Japanese on JP systems, English elsewhere
+            request.preferredLocale = Locale(identifier: "en_US")
 
             request.getMapItems { mapItems, error in
-                var result: [String: String] = ["ja": "", "error": ""]
+                var result: [String: String] = ["location": "", "error": ""]
 
                 if let error = error {
                     let desc = error.localizedDescription.lowercased()
@@ -52,7 +52,7 @@ DispatchQueue.global().async {
                     }
                 } else if let mapItem = mapItems?.first,
                           let address = mapItem.address {
-                    result["ja"] = address.fullAddress
+                    result["location"] = address.fullAddress
                 } else {
                     result["error"] = "empty"
                 }

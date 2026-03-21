@@ -166,26 +166,25 @@ impl GeocoderProcess {
 
         let parsed: HashMap<String, String> = serde_json::from_str(line.trim()).ok()?;
         let error = parsed.get("error").cloned().unwrap_or_default();
-        let ja = parsed.get("ja").cloned().unwrap_or_default();
+        let location = parsed.get("location").cloned().unwrap_or_default();
 
         self.last_lat = lat;
         self.last_lon = lon;
 
         if error == "rate_limit" {
-            // Back off 60 seconds on rate limit
             eprintln!("Geocoder: rate limited, waiting 60s");
             std::thread::sleep(std::time::Duration::from_secs(60));
             self.last_result = String::new();
             return None;
         }
 
-        if ja.is_empty() {
+        if location.is_empty() {
             self.last_result = String::new();
             return None;
         }
 
-        self.last_result = ja.clone();
-        Some(ja)
+        self.last_result = location.clone();
+        Some(location)
     }
 
     fn quit(&mut self) {
@@ -198,17 +197,33 @@ impl GeocoderProcess {
 }
 
 /// Build EN+JA location tags from a Japanese location string.
-fn build_location_tags(ja_location: &str) -> Vec<String> {
+/// Parse English fullAddress into tags, add Japanese prefecture names.
+/// Input: "Karuizawa, 〒389-0102, Nagano, Japan" or similar
+fn build_location_tags(en_location: &str) -> Vec<String> {
     let mut tags: Vec<String> = Vec::new();
-    for part in ja_location.split_whitespace() {
-        if !tags.contains(&part.to_string()) {
-            tags.push(part.to_string());
+    // Split by comma and whitespace, filter out postal codes and numbers
+    for segment in en_location.split(',') {
+        for word in segment.trim().split_whitespace() {
+            let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '-');
+            if clean.is_empty() || clean.starts_with('〒') {
+                continue;
+            }
+            // Skip pure numbers (postal codes, house numbers)
+            if clean.chars().all(|c| c.is_ascii_digit() || c == '-') {
+                continue;
+            }
+            if !tags.contains(&clean.to_string()) {
+                tags.push(clean.to_string());
+            }
         }
-        // Add English translation for prefectures
-        if let Some(en) = geo_dict::translate_prefecture(part) {
-            let en_str = en.to_string();
-            if !tags.contains(&en_str) {
-                tags.push(en_str);
+    }
+    // Add Japanese prefecture names via geo_dict
+    let tags_snapshot: Vec<String> = tags.clone();
+    for tag in &tags_snapshot {
+        if let Some(ja) = geo_dict::reverse_prefecture(tag) {
+            let ja_str = ja.to_string();
+            if !tags.contains(&ja_str) {
+                tags.push(ja_str);
             }
         }
     }
