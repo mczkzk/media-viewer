@@ -478,6 +478,16 @@ pub fn get_media_info(full_path: &Path) -> Result<serde_json::Value, String> {
     Ok(info)
 }
 
+/// Extract GPS coordinates (lat, lon) from an image file's EXIF data
+pub fn get_gps(file_path: &Path) -> Option<(f64, f64)> {
+    let file = std::fs::File::open(file_path).ok()?;
+    let mut reader = BufReader::new(file);
+    let exif_data = exif::Reader::new().read_from_container(&mut reader).ok()?;
+    let lat = get_gps_coord(&exif_data, exif::Tag::GPSLatitude, exif::Tag::GPSLatitudeRef)?;
+    let lon = get_gps_coord(&exif_data, exif::Tag::GPSLongitude, exif::Tag::GPSLongitudeRef)?;
+    Some((lat, lon))
+}
+
 /// Extract GPS coordinate from EXIF
 fn get_gps_coord(exif_data: &exif::Exif, coord_tag: exif::Tag, ref_tag: exif::Tag) -> Option<f64> {
     let field = exif_data.get_field(coord_tag, exif::In::PRIMARY)?;

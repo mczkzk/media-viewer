@@ -40,33 +40,32 @@ fn save_tags(app_data_dir: &Path, tags: &HashMap<String, Vec<String>>) -> Result
     fs::write(&path, data).map_err(|e| e.to_string())
 }
 
-fn find_vision_tagger() -> Option<PathBuf> {
-    // Check bundled binary in app Resources
+fn find_helper(name: &str) -> Option<PathBuf> {
     if let Ok(exe) = std::env::current_exe() {
         let resources = exe
             .parent()
             .and_then(|p| p.parent())
             .map(|p| p.join("Resources"));
         if let Some(ref res) = resources {
-            // Tauri bundles resources with their relative path
-            let bundled = res.join("helpers").join("vision-tagger");
+            let bundled = res.join("helpers").join(name);
             if bundled.exists() {
                 return Some(bundled);
             }
-            let flat = res.join("vision-tagger");
+            let flat = res.join(name);
             if flat.exists() {
                 return Some(flat);
             }
         }
     }
-
-    // Dev mode: check helpers directory relative to source
-    let dev_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("helpers").join("vision-tagger");
+    let dev_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("helpers").join(name);
     if dev_path.exists() {
         return Some(dev_path);
     }
-
     None
+}
+
+fn find_vision_tagger() -> Option<PathBuf> {
+    find_helper("vision-tagger")
 }
 
 /// Call the Swift vision-tagger helper for a batch of images.
@@ -90,6 +89,25 @@ fn classify_batch(paths: &[String]) -> Result<Vec<Vec<String>>, String> {
 
 use crate::label_dict;
 use crate::thumbnail;
+
+/// Reverse-geocode a batch of GPS coordinates to location names.
+/// coords: Vec of "lat,lon" strings
+fn reverse_geocode(coords: &[String]) -> Result<Vec<String>, String> {
+    let geocoder = find_helper("reverse-geocoder")
+        .ok_or("reverse-geocoder binary not found")?;
+
+    let output = Command::new(&geocoder)
+        .args(coords)
+        .output()
+        .map_err(|e| format!("Failed to run reverse-geocoder: {}", e))?;
+
+    if !output.status.success() {
+        return Err("reverse-geocoder failed".to_string());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse geocoder output: {}", e))
+}
 
 const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mov", "avi", "m4v", "mkv"];
 
@@ -124,21 +142,58 @@ pub fn tag_images(
         .collect();
 
     let results = classify_batch(&full_paths)?;
+
+    // Extract GPS coordinates for reverse geocoding
+    let mut gps_indices: Vec<usize> = Vec::new();
+    let mut gps_coords: Vec<String> = Vec::new();
+    for (i, p) in paths.iter().enumerate() {
+        if !is_video(p) {
+            let full = PathBuf::from(base_path).join(p);
+            if let Some((lat, lon)) = thumbnail::get_gps(&full) {
+                gps_indices.push(i);
+                gps_coords.push(format!("{},{}", lat, lon));
+            }
+        }
+    }
+
+    // Batch reverse-geocode all GPS coords at once
+    let location_names = if !gps_coords.is_empty() {
+        reverse_geocode(&gps_coords).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    // Build a map: path index -> location string
+    let mut location_map: HashMap<usize, String> = HashMap::new();
+    for (j, &idx) in gps_indices.iter().enumerate() {
+        if let Some(loc) = location_names.get(j) {
+            if !loc.is_empty() {
+                location_map.insert(idx, loc.clone());
+            }
+        }
+    }
+
     let mut tags = load_tags(app_data_dir);
     let mut count = 0;
 
-    for (rel_path, labels) in paths.iter().zip(results.iter()) {
+    for (i, (rel_path, labels)) in paths.iter().zip(results.iter()).enumerate() {
         let mut tag_set: Vec<String> = Vec::new();
         for label in labels {
             let ja = label_dict::translate(label);
-            // Always include English original
             if !tag_set.contains(&label.to_string()) {
                 tag_set.push(label.to_string());
             }
-            // Add Japanese translation if different from English
             let ja_str = ja.to_string();
             if ja != *label && !tag_set.contains(&ja_str) {
                 tag_set.push(ja_str);
+            }
+        }
+        // Add location tags from GPS
+        if let Some(location) = location_map.get(&i) {
+            for part in location.split_whitespace() {
+                if !tag_set.contains(&part.to_string()) {
+                    tag_set.push(part.to_string());
+                }
             }
         }
         tags.insert(rel_path.clone(), tag_set);
