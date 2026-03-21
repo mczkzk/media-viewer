@@ -11,11 +11,11 @@ class Gallery {
     this.currentPath = [];
   }
 
-  async load() {
+  async load({ force = false } = {}) {
     try {
       let data;
       if (this.tauriApp && this.tauriApp.isTauri) {
-        data = await this.tauriApp.scanMedia();
+        data = force ? await this.tauriApp.forceScan() : await this.tauriApp.scanMedia();
       } else {
         const response = await fetch('/api/media');
         if (!response.ok) {
@@ -28,6 +28,7 @@ class Gallery {
       this.preConvertSearchFields();
       this.sortItems();
       this.filteredItems = this.mediaItems;
+      if (force) this._resetThumbnailBatcher();
       this.render();
     } catch (error) {
       console.error('Error loading media:', error);
@@ -138,7 +139,7 @@ class Gallery {
              alt="${item.filename}"
              loading="lazy"
              onload="this.parentElement.classList.remove('loading');this.parentElement.classList.remove('error')"
-             onerror="if(this.src){this.parentElement.classList.add('error');this.parentElement.classList.remove('loading')}">
+             onerror="if(!window.__TAURI__ && this.src){this.parentElement.classList.add('error');this.parentElement.classList.remove('loading')}">
         <div class="caption">${this.getDisplayCaption(item)}</div>
       </div>
     `;
@@ -149,6 +150,14 @@ class Gallery {
       return this.tauriApp.thumbnailUrl(item.path);
     }
     return `/api/thumbnail?path=${encodeURIComponent(item.path)}`;
+  }
+
+  _resetThumbnailBatcher() {
+    if (this._thumbBatcher) {
+      clearTimeout(this._thumbBatcher.timer);
+      this._thumbBatcher.pending.length = 0;
+    }
+    this._thumbBatcher = null;
   }
 
   // Cached thumbnails load directly via HTTP. On 404 (cache miss),

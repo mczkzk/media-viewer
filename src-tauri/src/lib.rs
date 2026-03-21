@@ -3,7 +3,8 @@ mod thumbnail;
 mod video_server;
 
 use std::path::PathBuf;
-use tauri::Manager;
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::{Emitter, Manager};
 use tauri_plugin_fs::FsExt;
 use tauri_plugin_store::StoreExt;
 
@@ -23,6 +24,11 @@ async fn set_stored_path(app: tauri::AppHandle, path: String) -> Result<(), Stri
     let store = app
         .store("settings.json")
         .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+
+    let old_path = store
+        .get("mediaBasePath")
+        .and_then(|v: serde_json::Value| v.as_str().map(String::from));
+
     store.set("mediaBasePath", serde_json::json!(path));
     store
         .save()
@@ -30,6 +36,13 @@ async fn set_stored_path(app: tauri::AppHandle, path: String) -> Result<(), Stri
 
     let scope = app.fs_scope();
     let _ = scope.allow_directory(&path, true);
+
+    // Clear scan cache when folder actually changes
+    if old_path.as_deref() != Some(&path) {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let cache_file = app_data_dir.join("cache").join("index.json");
+        let _ = std::fs::remove_file(cache_file);
+    }
 
     Ok(())
 }
@@ -268,6 +281,43 @@ pub fn run() {
                     let _ = scope.allow_directory(&path, true);
                 }
             }
+
+            // Application menu
+            let change_folder =
+                MenuItemBuilder::with_id("change_folder", "フォルダを変更...")
+                    .accelerator("CmdOrCtrl+O")
+                    .build(app)?;
+
+            let file_menu = SubmenuBuilder::new(app, "File")
+                .item(&change_folder)
+                .separator()
+                .close_window()
+                .build()?;
+
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+
+            let view_menu = SubmenuBuilder::new(app, "View")
+                .fullscreen()
+                .build()?;
+
+            let menu = MenuBuilder::new(app)
+                .items(&[&file_menu, &edit_menu, &view_menu])
+                .build()?;
+            app.set_menu(menu)?;
+
+            app.on_menu_event(move |app_handle, event| {
+                if event.id().0.as_str() == "change_folder" {
+                    let _ = app_handle.emit("menu-change-folder", ());
+                }
+            });
 
             Ok(())
         })

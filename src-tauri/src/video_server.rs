@@ -24,9 +24,10 @@ pub fn start() -> u16 {
 }
 
 fn handle_request(request: tiny_http::Request) {
-    // URL path is the absolute file path (percent-encoded)
-    let raw_path = request.url().to_string();
-    let decoded = percent_encoding::percent_decode_str(&raw_path)
+    // URL path is the absolute file path (percent-encoded); strip query string
+    let raw_url = request.url().to_string();
+    let raw_path = raw_url.split('?').next().unwrap_or(&raw_url);
+    let decoded = percent_encoding::percent_decode_str(raw_path)
         .decode_utf8_lossy()
         .to_string();
 

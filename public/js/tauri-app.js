@@ -14,10 +14,6 @@ class TauriApp {
 
     this.mediaBasePath = await this.getStoredPath();
 
-    if (!this.mediaBasePath) {
-      this.mediaBasePath = await this.selectFolder();
-    }
-
     if (this.mediaBasePath) {
       [this.thumbnailCacheDir, this.videoServerPort] = await Promise.all([
         window.__TAURI__.core.invoke('get_thumbnail_cache_dir'),
@@ -64,9 +60,15 @@ class TauriApp {
 
   async changeFolder() {
     const path = await this.selectFolder();
-    if (path) {
-      location.reload();
+    if (!path) return false;
+
+    if (!this.thumbnailCacheDir || !this.videoServerPort) {
+      [this.thumbnailCacheDir, this.videoServerPort] = await Promise.all([
+        window.__TAURI__.core.invoke('get_thumbnail_cache_dir'),
+        window.__TAURI__.core.invoke('get_video_server_port'),
+      ]);
     }
+    return true;
   }
 
   async scanMedia() {

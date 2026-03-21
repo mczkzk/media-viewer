@@ -65,7 +65,7 @@ body {
   min-width: 200px;
 }
 
-.rescan-btn {
+.toolbar-btn {
   width: 40px;
   height: 40px;
   padding: 0;
@@ -82,20 +82,20 @@ body {
   transition: background-color 0.15s, color 0.15s;
 }
 
-.rescan-btn:hover {
+.toolbar-btn:hover {
   background-color: rgba(0, 0, 0, 0.06);
   color: #333;
 }
 
-.rescan-btn:active {
+.toolbar-btn:active {
   background-color: rgba(0, 0, 0, 0.1);
 }
 
-.rescan-btn.loading {
+.toolbar-btn.loading {
   pointer-events: none;
 }
 
-.rescan-btn.loading svg {
+.toolbar-btn.loading svg {
   animation: spin 0.8s linear infinite;
 }
 
@@ -195,6 +195,10 @@ body {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.grid-item.loading img {
+  visibility: hidden;
 }
 
 /* Loading state */
