@@ -72,15 +72,21 @@ Tauri WebView (Frontend) → IPC/HTTP → Rust Backend → Local Files
 - `vision-tagger` Swift ヘルパー呼び出し:
   - `VNClassifyImageRequest`: 画像分類 (confidence >= 0.4)
   - `VNRecognizeTextRequest`: OCR (日英対応、2文字以上、最大20件/画像)
-- `reverse-geocoder` Swift ヘルパー呼び出し:
-  - `CLGeocoder`: GPS座標 → 地名 (日英両方)
-- タグ構成: Vision英語ラベル + 日本語翻訳 + OCRテキスト + GPS地名(JA+EN)
+- `reverse-geocoder` Swift ヘルパー (常駐プロセス, stdin/stdout通信):
+  - `MKReverseGeocodingRequest` (en_US locale, macOS 26+)
+  - 2秒間隔でレート制限回避、失敗時60秒バックオフ
+  - 50m以内の近接座標はキャッシュ再利用
+- タグ構成: Vision英語ラベル + 日本語翻訳 + OCRテキスト + GPS地名(EN) + 日本語地名(geo_dict)
 - `AppData/cache/tags.json` に永続保存 (cache clearでは消えない)
 - 動画: キャッシュ済みサムネイルを分類に使用 (サムネ先行生成)
 
-#### label_dict.rs - 翻訳辞書
+#### label_dict.rs - Visionラベル翻訳辞書
 - Vision Framework ラベル → 日本語翻訳 (~500エントリ)
 - 英語と日本語の両方をタグに保存
+
+#### geo_dict.rs - 地名翻訳辞書
+- 都道府県47件 + 主要都市/観光地100+件の英語→日本語変換
+- "Karuizawa" → ["軽井沢"], "Kyoto" → ["京都府", "京都"] のように複数タグ返却
 
 #### video_server.rs - HTTPサーバー
 - `tiny_http` でローカルHTTPサーバー (ランダムポート、別スレッド)
@@ -97,9 +103,11 @@ Tauri WebView (Frontend) → IPC/HTTP → Rust Backend → Local Files
 - `npm run build:helpers` でコンパイル、アプリバンドル `Resources/helpers/` に配置
 
 #### reverse-geocoder.swift
-- **入力**: `lat,lon` (引数、複数可)
-- **出力**: `[{"ja":"日本 京都府 京都市","en":"Japan Kyoto Nakagyo"}]`
-- `preferredLocale` で日英両方取得
+- **常駐プロセス**: stdin で `lat,lon` を1行ずつ受信、stdout で JSON 1行ずつ返却
+- **出力**: `{"location":"Karuizawa, Nagano, Japan","error":""}`
+- **API**: `MKReverseGeocodingRequest` (en_US locale, macOS 26+)
+- **エラー検出**: rate_limit / no_result / empty を区別して返却
+- `quit` で終了
 
 ### フロントエンド (Vanilla JS)
 
@@ -196,7 +204,8 @@ media-viewer/
 │       ├── scanner.rs             # ディレクトリスキャン + キャッシュ
 │       ├── thumbnail.rs           # サムネイル + EXIF + GPS抽出
 │       ├── tagger.rs              # タグ管理 (Vision + OCR + GPS統合)
-│       ├── label_dict.rs          # EN→JA翻訳辞書
+│       ├── label_dict.rs          # Visionラベル EN→JA翻訳辞書
+│       ├── geo_dict.rs            # 地名 EN→JA翻訳辞書
 │       └── video_server.rs        # HTTPファイルサーバー
 ├── public/
 │   ├── index.html                 # エントリ + 初期化 + バックグラウンドタグ付け

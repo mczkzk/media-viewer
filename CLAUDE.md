@@ -75,12 +75,16 @@ npm run build:helpers   # Compile Swift helpers (first time or after .swift chan
 
 5. **Image Tagger (src-tauri/src/tagger.rs)**:
    - `vision-tagger` Swift helper: image classification (`VNClassifyImageRequest`) + OCR (`VNRecognizeTextRequest`)
-   - `reverse-geocoder` Swift helper: GPS-to-place-name (CLGeocoder, JA+EN bilingual)
+   - `reverse-geocoder` Swift helper: persistent process, `MKReverseGeocodingRequest` (en_US locale)
+     - stdin/stdout communication, CLGeocoder cache enabled
+     - 2s interval between requests, 60s backoff on rate limit
+     - 50m proximity dedup (reuses result for nearby coordinates)
    - Stores tags in `AppData/cache/tags.json` (not cleared by cache clear, regenerate via menu)
-   - Tags: Vision labels (EN+JA) + OCR text + GPS place names (JA+EN)
-   - `label_dict.rs`: ~500 entry English-to-Japanese translation table
+   - Tags: Vision labels (EN+JA) + OCR text + GPS place names (EN + JA via geo_dict)
+   - `label_dict.rs`: ~500 entry Vision label EN-to-JA translation
+   - `geo_dict.rs`: 47 prefectures + 100+ cities/landmarks EN-to-JA translation
    - Videos: thumbnails pre-generated before tagging, then classified
-   - Swift helpers compiled by `build.rs`, bundled in `Resources/helpers/`
+   - Swift helpers compiled by `npm run build:helpers`, bundled in `Resources/helpers/`
 
 ### Tauri IPC Commands
 
