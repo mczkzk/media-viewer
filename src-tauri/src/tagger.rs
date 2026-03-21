@@ -96,28 +96,35 @@ fn classify_batch(paths: &[String]) -> Result<Vec<VisionResult>, String> {
 use crate::label_dict;
 use crate::thumbnail;
 
-#[derive(Deserialize)]
 struct GeoResult {
-    ja: String,
     en: String,
+    ja: String,
 }
 
-/// Reverse-geocode a batch of GPS coordinates to location names (JA + EN).
-fn reverse_geocode(coords: &[String]) -> Result<Vec<GeoResult>, String> {
-    let geocoder = find_helper("reverse-geocoder")
-        .ok_or("reverse-geocoder binary not found")?;
+/// Reverse-geocode a single coordinate via Swift helper (CLGeocoder).
+fn reverse_geocode_one(lat: f64, lon: f64) -> Option<GeoResult> {
+    let geocoder = find_helper("reverse-geocoder")?;
+    let coord = format!("{},{}", lat, lon);
 
     let output = Command::new(&geocoder)
-        .args(coords)
+        .arg(&coord)
         .output()
-        .map_err(|e| format!("Failed to run reverse-geocoder: {}", e))?;
+        .ok()?;
 
     if !output.status.success() {
-        return Err("reverse-geocoder failed".to_string());
+        return None;
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse geocoder output: {}", e))
+    let parsed: HashMap<String, String> = serde_json::from_str(&stdout).ok()?;
+    let ja = parsed.get("ja").cloned().unwrap_or_default();
+    let en = parsed.get("en").cloned().unwrap_or_default();
+
+    if ja.is_empty() && en.is_empty() {
+        return None;
+    }
+
+    Some(GeoResult { en, ja })
 }
 
 const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mov", "avi", "m4v", "mkv"];
@@ -154,33 +161,20 @@ pub fn tag_images(
 
     let results = classify_batch(&full_paths)?;
 
-    // Extract GPS coordinates for reverse geocoding
-    let mut gps_indices: Vec<usize> = Vec::new();
-    let mut gps_coords: Vec<String> = Vec::new();
+    // Extract GPS and reverse-geocode one at a time (1s interval to avoid rate limiting)
+    let mut location_map: HashMap<usize, GeoResult> = HashMap::new();
     for (i, p) in paths.iter().enumerate() {
         if !is_video(p) {
             let full = PathBuf::from(base_path).join(p);
             if let Some((lat, lon)) = thumbnail::get_gps(&full) {
-                gps_indices.push(i);
-                gps_coords.push(format!("{},{}", lat, lon));
+                if let Some(geo) = reverse_geocode_one(lat, lon) {
+                    location_map.insert(i, geo);
+                }
+                // Rate limit: 1 second between geocode requests
+                std::thread::sleep(std::time::Duration::from_secs(1));
             }
         }
     }
-
-    // Batch reverse-geocode all GPS coords at once
-    let location_names = if !gps_coords.is_empty() {
-        reverse_geocode(&gps_coords).unwrap_or_default()
-    } else {
-        Vec::new()
-    };
-
-    // Build a map: path index -> GeoResult (JA + EN)
-    let location_map: HashMap<usize, &GeoResult> = gps_indices
-        .iter()
-        .enumerate()
-        .filter_map(|(j, &idx)| location_names.get(j).map(|geo| (idx, geo)))
-        .filter(|(_, geo)| !geo.ja.is_empty() || !geo.en.is_empty())
-        .collect();
 
     let mut tags = load_tags(app_data_dir);
     let mut count = 0;
@@ -224,3 +218,4 @@ pub fn tag_images(
     save_tags(app_data_dir, &tags)?;
     Ok(count)
 }
+
