@@ -10,14 +10,6 @@ struct TagCache {
     tags: HashMap<String, Vec<String>>,
 }
 
-impl TagCache {
-    fn new() -> Self {
-        Self {
-            version: 1,
-            tags: HashMap::new(),
-        }
-    }
-}
 
 fn cache_path(app_data_dir: &Path) -> PathBuf {
     app_data_dir.join("cache").join("tags.json")
