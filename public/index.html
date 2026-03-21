@@ -207,6 +207,22 @@
           });
         }
 
+        // Menu: clear cache handler
+        if (window.__TAURI__) {
+          window.__TAURI__.event.listen('menu-clear-cache', async () => {
+            if (!confirm('サムネイルとスキャンキャッシュをすべて削除しますか？')) return;
+            try {
+              const msg = await window.__TAURI__.core.invoke('clear_cache');
+              alert(msg);
+              await gallery.load({ force: true });
+              updateYearFilter();
+              updateStats();
+            } catch (e) {
+              alert('キャッシュクリアに失敗しました: ' + e);
+            }
+          });
+        }
+
         // Rescan button handler
         const rescanBtn = document.getElementById('rescan-btn');
         rescanBtn.addEventListener('click', async () => {

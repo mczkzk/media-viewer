@@ -25,8 +25,10 @@ cd src-tauri && cargo test
 ```
 
 **Clear cache (troubleshooting):**
+App menu: File > キャッシュをクリア, or manually:
 ```bash
 rm ~/Library/Application\ Support/com.mediaviewer.app/cache/thumbnails/*.jpg
+rm ~/Library/Application\ Support/com.mediaviewer.app/cache/converted/*.jpg
 rm ~/Library/Application\ Support/com.mediaviewer.app/cache/index.json
 ```
 
@@ -43,11 +45,14 @@ npm install
 
 1. **Rust Backend (src-tauri/src/lib.rs)**:
    - Tauri v2 IPC commands (see table below)
+   - macOS menu bar: File (folder change, cache clear), Edit, View
+   - Menu events emitted to frontend via `app.emit()`
    - Local HTTP server (`tiny_http`, src/video_server.rs) for all file serving on random port
    - `media://` protocol retained as fallback for HEIC conversion
    - Range requests support for video streaming
    - HEIC auto-conversion via macOS `sips`, cached in AppData
    - `plugin-store` for persisting mediaBasePath, `plugin-dialog` for folder selection
+   - `set_stored_path` invalidates scan cache when folder changes
 
 2. **Scanner (src-tauri/src/scanner.rs)**:
    - `walkdir` crate scans `YEAR/EVENT/...files` structure recursively
@@ -79,6 +84,7 @@ npm install
 | `batch_ensure_thumbnails` | `paths[]`, `base_path` | `Vec<bool>` | Batch thumbnail generation |
 | `get_media_info` | `path`, `base_path` | `JSON` | EXIF/video metadata |
 | `get_video_server_port` | - | `u16` | Local HTTP server port |
+| `clear_cache` | - | `String` | Delete all caches (thumbnails + converted + scan) |
 
 ### Frontend Architecture (Vanilla JS)
 
@@ -102,6 +108,8 @@ npm install
   - JS-side MD5 hash for thumbnail URLs (no IPC needed for cached thumbnails)
   - Batch thumbnail generation for cache misses
   - All content served via `http://127.0.0.1:PORT/...` (local HTTP server)
+  - `changeFolder()`: folder selection + Tauri state init (no page reload needed)
+  - Listens for menu events (`menu-change-folder`, `menu-clear-cache`)
 
 - **Gallery (public/js/gallery.js)**:
   - Two render modes: `renderFlat()` and `renderHierarchical()`

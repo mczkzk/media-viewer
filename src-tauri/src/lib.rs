@@ -119,6 +119,43 @@ async fn get_video_server_port(state: tauri::State<'_, VideoServerPort>) -> Resu
     Ok(state.0)
 }
 
+#[tauri::command]
+async fn clear_cache(app: tauri::AppHandle) -> Result<String, String> {
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let cache_dir = app_data_dir.join("cache");
+
+    let mut total_bytes: u64 = 0;
+    let mut total_files: u64 = 0;
+
+    for subdir in &["thumbnails", "converted"] {
+        let dir = cache_dir.join(subdir);
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                    continue;
+                }
+                if let Ok(meta) = entry.metadata() {
+                    total_bytes += meta.len();
+                }
+                if std::fs::remove_file(entry.path()).is_ok() {
+                    total_files += 1;
+                }
+            }
+        }
+    }
+
+    let index = cache_dir.join("index.json");
+    if let Ok(meta) = std::fs::metadata(&index) {
+        total_bytes += meta.len();
+        if std::fs::remove_file(&index).is_ok() {
+            total_files += 1;
+        }
+    }
+
+    let size_mb = total_bytes as f64 / (1024.0 * 1024.0);
+    Ok(format!("{total_files}ファイル（{size_mb:.1}MB）を削除しました"))
+}
+
 struct VideoServerPort(u16);
 
 pub fn mime_for_ext(ext: &str) -> &'static str {
@@ -288,8 +325,13 @@ pub fn run() {
                     .accelerator("CmdOrCtrl+O")
                     .build(app)?;
 
+            let clear_cache_menu =
+                MenuItemBuilder::with_id("clear_cache", "キャッシュをクリア...")
+                    .build(app)?;
+
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&change_folder)
+                .item(&clear_cache_menu)
                 .separator()
                 .close_window()
                 .build()?;
@@ -314,8 +356,14 @@ pub fn run() {
             app.set_menu(menu)?;
 
             app.on_menu_event(move |app_handle, event| {
-                if event.id().0.as_str() == "change_folder" {
-                    let _ = app_handle.emit("menu-change-folder", ());
+                match event.id().0.as_str() {
+                    "change_folder" => {
+                        let _ = app_handle.emit("menu-change-folder", ());
+                    }
+                    "clear_cache" => {
+                        let _ = app_handle.emit("menu-clear-cache", ());
+                    }
+                    _ => {}
                 }
             });
 
@@ -330,7 +378,8 @@ pub fn run() {
             get_thumbnail_cache_dir,
             batch_ensure_thumbnails,
             get_media_info,
-            get_video_server_port
+            get_video_server_port,
+            clear_cache
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
