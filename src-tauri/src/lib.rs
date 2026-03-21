@@ -1,3 +1,4 @@
+mod label_dict;
 mod scanner;
 mod tagger;
 mod thumbnail;
