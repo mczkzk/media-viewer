@@ -86,7 +86,7 @@
       if (tauriApp.isTauri && !tauriApp.mediaBasePath) {
         document.getElementById('gallery').innerHTML =
           '<div class="error-message">メディアフォルダが選択されていません。<br>File メニューからフォルダを選択してください。</div>';
-        if (window.__TAURI__) {
+        if (tauriApp.isTauri) {
           window.__TAURI__.event.listen('menu-change-folder', async () => {
             const changed = await tauriApp.changeFolder();
             if (changed) location.reload();
@@ -195,7 +195,7 @@
         });
 
         // Menu: change folder handler
-        if (window.__TAURI__) {
+        if (tauriApp.isTauri) {
           window.__TAURI__.event.listen('menu-change-folder', async () => {
             const changed = await tauriApp.changeFolder();
             if (changed) {
@@ -214,7 +214,7 @@
         }
 
         // Menu: clear cache handler
-        if (window.__TAURI__) {
+        if (tauriApp.isTauri) {
           window.__TAURI__.event.listen('menu-clear-cache', async () => {
             if (!confirm('サムネイルとスキャンキャッシュをすべて削除しますか？')) return;
             try {
@@ -230,7 +230,7 @@
         }
 
         // Menu: regenerate tags handler
-        if (window.__TAURI__) {
+        if (tauriApp.isTauri) {
           window.__TAURI__.event.listen('menu-regenerate-tags', async () => {
             if (!confirm('タグを全て削除して再生成しますか？\n（時間がかかります）')) return;
             await window.__TAURI__.core.invoke('clear_tags');

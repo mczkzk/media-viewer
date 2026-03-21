@@ -95,17 +95,16 @@ fn classify_batch(paths: &[String]) -> Result<Vec<VisionResult>, String> {
 
 use crate::geo_dict;
 use crate::label_dict;
+use crate::scanner;
 use crate::thumbnail;
 
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Stdio};
 
-const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mov", "avi", "m4v", "mkv"];
-
 fn is_video(path: &str) -> bool {
     path.rsplit('.')
         .next()
-        .map(|ext| VIDEO_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
+        .map(|ext| scanner::VIDEO_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
         .unwrap_or(false)
 }
 
@@ -121,6 +120,7 @@ fn gps_distance(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
 
 struct GeocoderProcess {
     child: Child,
+    reader: BufReader<std::process::ChildStdout>,
     last_lat: f64,
     last_lon: f64,
     last_result: String,
@@ -129,14 +129,17 @@ struct GeocoderProcess {
 impl GeocoderProcess {
     fn spawn() -> Option<Self> {
         let geocoder_path = find_helper("reverse-geocoder")?;
-        let child = Command::new(&geocoder_path)
+        let mut child = Command::new(&geocoder_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
             .ok()?;
+        let stdout = child.stdout.take()?;
+        let reader = BufReader::new(stdout);
         Some(Self {
             child,
+            reader,
             last_lat: f64::NAN,
             last_lon: f64::NAN,
             last_result: String::new(),
@@ -145,7 +148,6 @@ impl GeocoderProcess {
 
     /// Geocode a coordinate. Reuses cached result if within 50m of last query.
     fn geocode(&mut self, lat: f64, lon: f64) -> Option<String> {
-        // Skip if within 50m of last coordinate
         if !self.last_lat.is_nan() && gps_distance(lat, lon, self.last_lat, self.last_lon) < 50.0 {
             if !self.last_result.is_empty() {
                 return Some(self.last_result.clone());
@@ -154,15 +156,13 @@ impl GeocoderProcess {
         }
 
         let stdin = self.child.stdin.as_mut()?;
-        let stdout = self.child.stdout.as_mut()?;
-        let mut reader = BufReader::new(stdout);
 
         let coord = format!("{},{}\n", lat, lon);
         stdin.write_all(coord.as_bytes()).ok()?;
         stdin.flush().ok()?;
 
         let mut line = String::new();
-        reader.read_line(&mut line).ok()?;
+        self.reader.read_line(&mut line).ok()?;
 
         let parsed: HashMap<String, String> = serde_json::from_str(line.trim()).ok()?;
         let error = parsed.get("error").cloned().unwrap_or_default();
@@ -201,14 +201,12 @@ impl GeocoderProcess {
 /// Input: "Karuizawa, 〒389-0102, Nagano, Japan" or similar
 fn build_location_tags(en_location: &str) -> Vec<String> {
     let mut tags: Vec<String> = Vec::new();
-    // Split by comma and whitespace, filter out postal codes and numbers
     for segment in en_location.split(',') {
         for word in segment.trim().split_whitespace() {
             let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '-');
             if clean.is_empty() || clean.starts_with('〒') {
                 continue;
             }
-            // Skip pure numbers (postal codes, house numbers)
             if clean.chars().all(|c| c.is_ascii_digit() || c == '-') {
                 continue;
             }
@@ -217,7 +215,6 @@ fn build_location_tags(en_location: &str) -> Vec<String> {
             }
         }
     }
-    // Add Japanese translations via geo_dict
     let tags_snapshot: Vec<String> = tags.clone();
     for tag in &tags_snapshot {
         for ja in geo_dict::translate(tag) {
@@ -254,7 +251,6 @@ pub fn tag_images(
 
     let results = classify_batch(&full_paths)?;
 
-    // Geocode GPS coordinates via persistent helper process
     let mut location_map: HashMap<usize, Vec<String>> = HashMap::new();
     let mut geocoder = GeocoderProcess::spawn();
 
@@ -266,7 +262,7 @@ pub fn tag_images(
                     if let Some(ja_location) = geo.geocode(lat, lon) {
                         location_map.insert(i, build_location_tags(&ja_location));
                     }
-                    // Rate limit: 2 seconds between geocode requests
+                    // CLGeocoder rate limit: match reverse-geocoder's 2s interval
                     std::thread::sleep(std::time::Duration::from_secs(2));
                 }
             }
@@ -280,7 +276,6 @@ pub fn tag_images(
     for (i, (rel_path, vision)) in paths.iter().zip(results.iter()).enumerate() {
         let mut tag_set: Vec<String> = Vec::new();
 
-        // Vision classification labels (EN + JA)
         for label in &vision.labels {
             let ja = label_dict::translate(label);
             if !tag_set.contains(&label.to_string()) {
@@ -292,14 +287,12 @@ pub fn tag_images(
             }
         }
 
-        // OCR text
         for text in &vision.text {
             if !tag_set.contains(text) {
                 tag_set.push(text.clone());
             }
         }
 
-        // GPS location tags (JA + EN prefecture)
         if let Some(loc_tags) = location_map.get(&i) {
             for tag in loc_tags {
                 if !tag_set.contains(tag) {
