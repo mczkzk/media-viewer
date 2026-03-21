@@ -479,9 +479,13 @@ pub fn get_media_info(full_path: &Path) -> Result<serde_json::Value, String> {
 }
 
 /// Extract GPS coordinates (lat, lon) from an image file's EXIF data.
-/// For HEIC files, falls back to sips JSON output since kamadak-exif doesn't support HEIC.
 pub fn get_gps(file_path: &Path) -> Option<(f64, f64)> {
-    // Try kamadak-exif first (works for JPEG/TIFF)
+    // For HEIC, always use mdls (kamadak-exif is unreliable for HEIC GPS)
+    if is_heic(file_path) {
+        return get_gps_via_mdls(file_path);
+    }
+
+    // For JPEG/TIFF, use kamadak-exif
     if let Ok(file) = std::fs::File::open(file_path) {
         let mut reader = BufReader::new(file);
         if let Ok(exif_data) = exif::Reader::new().read_from_container(&mut reader) {
@@ -493,16 +497,12 @@ pub fn get_gps(file_path: &Path) -> Option<(f64, f64)> {
         }
     }
 
-    // Fallback for HEIC: use sips to extract GPS
-    if is_heic(file_path) {
-        return get_gps_via_sips(file_path);
-    }
-
-    None
+    // Fallback: try mdls for any file type
+    get_gps_via_mdls(file_path)
 }
 
 /// Extract GPS from HEIC using macOS sips command
-fn get_gps_via_sips(file_path: &Path) -> Option<(f64, f64)> {
+fn get_gps_via_mdls(file_path: &Path) -> Option<(f64, f64)> {
     let output = Command::new("mdls")
         .args(["-name", "kMDItemLatitude", "-name", "kMDItemLongitude"])
         .arg(file_path)
