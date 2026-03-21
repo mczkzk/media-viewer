@@ -73,12 +73,12 @@ npm install
    - `get_gps()`: GPS extraction with HEIC fallback via `mdls`
 
 5. **Image Tagger (src-tauri/src/tagger.rs)**:
-   - Calls `vision-tagger` Swift helper for image classification (macOS Vision Framework)
-   - Calls `reverse-geocoder` Swift helper for GPS-to-place-name conversion (CLGeocoder)
-   - Stores tags in `AppData/cache/tags.json` (not cleared by cache clear)
-   - Tags include both English and Japanese labels for bilingual search
+   - `vision-tagger` Swift helper: image classification (`VNClassifyImageRequest`) + OCR (`VNRecognizeTextRequest`)
+   - `reverse-geocoder` Swift helper: GPS-to-place-name (CLGeocoder, JA+EN bilingual)
+   - Stores tags in `AppData/cache/tags.json` (not cleared by cache clear, regenerate via menu)
+   - Tags: Vision labels (EN+JA) + OCR text + GPS place names (JA+EN)
    - `label_dict.rs`: ~500 entry English-to-Japanese translation table
-   - Videos tagged via cached thumbnail (1s frame)
+   - Videos: thumbnails pre-generated before tagging, then classified
    - Swift helpers compiled by `build.rs`, bundled in `Resources/helpers/`
 
 ### Tauri IPC Commands
@@ -96,7 +96,8 @@ npm install
 | `get_video_server_port` | - | `u16` | Local HTTP server port |
 | `clear_cache` | - | `String` | Delete all caches (thumbnails + converted + scan) |
 | `get_tags` | - | `HashMap<String, Vec<String>>` | Get all image tags |
-| `tag_images` | `paths[]`, `base_path` | `usize` | Batch tag images (Vision + GPS) |
+| `tag_images` | `paths[]`, `base_path` | `usize` | Batch tag images (Vision + OCR + GPS) |
+| `clear_tags` | - | - | Delete tags.json for regeneration |
 
 ### Frontend Architecture (Vanilla JS)
 

@@ -14,10 +14,12 @@ GPS座標から地名（"京都府", "東京都" など）もタグに追加。
 - **UIは変更なし**: 既存の検索ボックスをそのまま使用
 - **オフライン完結**: macOS Vision Framework（無料、プライバシー安全）
 - **タグは英語+日本語の両方**: "sky" と "空" の両方を保存し、どちらでも検索可能
-- **GPS地名**: EXIF GPS座標をCLGeocoderで逆ジオコーディングし地名をタグに追加
+- **OCRテキスト認識**: 画像内の文字を読み取りタグに追加 (看板、メニュー等)
+- **GPS地名**: EXIF GPS座標をCLGeocoderで逆ジオコーディング、日英両方の地名をタグに追加
 - **バックグラウンド処理**: 7000枚を段階的に解析（UIをブロックしない）
 - **永続キャッシュ**: 一度解析した画像は再解析不要
 - **clear_cacheではタグを消さない**: 再解析に時間がかかるため別管理
+- **タグ再生成メニュー**: File > タグを再生成 でロジック変更後の再解析が可能
 
 ## アーキテクチャ
 
@@ -35,12 +37,13 @@ GPS座標から地名（"京都府", "東京都" など）もタグに追加。
 
 #### vision-tagger (`src-tauri/helpers/vision-tagger.swift`)
 
-macOS Vision Framework の `VNClassifyImageRequest` で画像を分類。
+macOS Vision Framework で画像分類 + OCRテキスト認識。
 
 - **入力**: 画像ファイルパス（引数、複数可）
-- **出力**: JSON配列の配列（stdout）
-- **閾値**: confidence >= 0.4 のラベルを採用
-- **例**: `./vision-tagger photo1.jpg photo2.jpg` → `[["food","outdoor"],["sky","cloud"]]`
+- **出力**: JSON配列（stdout）。各要素は `{"labels":["food","outdoor"], "text":["MENU","HOTEL"]}`
+- **分類**: `VNClassifyImageRequest` (confidence >= 0.4)
+- **OCR**: `VNRecognizeTextRequest` (JA+EN対応、2文字以上、最大20件)
+- **例**: `./vision-tagger menu.jpg` → `[{"labels":["structure"],"text":["MAMPEI HOTEL","MENU"]}]`
 
 #### reverse-geocoder (`src-tauri/helpers/reverse-geocoder.swift`)
 
@@ -48,8 +51,8 @@ macOS CLGeocoder でGPS座標を日本語地名に変換。
 
 - **入力**: `lat,lon` 形式の座標（引数、複数可）
 - **出力**: JSON文字列配列（stdout）
-- **ロケール**: 日本語固定（`AppleLanguages = ["ja"]`）
-- **例**: `./reverse-geocoder 35.01,135.77` → `["日本 京都府 京都市 中京区 京都市役所"]`
+- **ロケール**: 日本語+英語の両方を返す
+- **例**: `./reverse-geocoder 35.01,135.77` → `[{"ja":"日本 京都府 京都市","en":"Japan Kyoto Nakagyo"}]`
 
 両ヘルパーは `build.rs` で `swiftc` コンパイルされ、アプリバンドルの `Resources/helpers/` に配置。
 
