@@ -1,212 +1,103 @@
 # Media Viewer
 
-年代ごとに整理された写真・動画コレクション用のデスクトップメディアビューワー
+macOS向けのローカルメディアビューワー。年/イベントで整理された写真・動画をサムネイルグリッドで閲覧、AI画像認識とGPS地名で検索できる。
 
-Tauri v2 (Rust) + Vanilla JavaScript で構築されたネイティブmacOSアプリケーション。
+## 主な特徴
 
-## 機能
+- **AI検索** - 「食べ物」「海」「犬」などの内容、画像内の文字(OCR)、GPS地名(京都、Tokyo)で検索
+- **高速表示** - 7,000枚以上を仮想スクロールで快適に閲覧
+- **HEIC対応** - iPhone写真をそのまま表示
+- **動画再生** - MP4/MOV/AVI/M4V/MKVをストリーミング再生
+- **オフライン完結** - API不要、全てローカル処理
 
-- **グリッド表示** - サムネイル一覧表示 (7,000枚以上対応)
-- **HEIC完全対応** - iPhone写真を自動JPEG変換 (macOS sips)
-- **動画再生** - ライトボックス内でMP4/MOV/AVI/M4V/MKVをストリーミング再生
-- **スライドショー** - 矢印キーでナビゲーション
-- **AI画像タグ付け** - macOS Vision Frameworkで画像内容を自動解析 (食べ物、海、犬 等)
-- **OCRテキスト認識** - 画像内の文字を読み取り検索可能に (看板、メニュー等)
-- **GPS地名検索** - 写真のGPS座標から地名を自動取得 (京都/Kyoto、東京/Tokyo 等)
-- **検索・フィルタ** - 年、イベント名、画像タグ、地名で絞り込み (日英バイリンガル+ローマ字対応)
-- **ソート** - 新しい順/古い順を切り替え
-- **サイズ調整** - サムネイルサイズ (小/中/大) を選択可能
-- **年区切り** - 年ごとにセクション表示、右サイドバーで年インデックスナビ
-- **階層モード** - 年選択でFinder風フォルダ表示、パンくずナビ
-- **仮想スクロール** - DOM要素を最小限に保ち大量データでも高速表示
-- **Lazy Loading** - スクロールに応じてサムネイルをオンデマンド生成
-- **キャッシュ** - サムネイル、HEIC変換、スキャン結果を永続キャッシュ
-- **EXIF情報** - カメラ、レンズ、設定値、GPS地図表示
-- **動画メタデータ** - 再生時間、コーデック、fps、解像度
-- **ネイティブフォルダ選択** - macOSダイアログでメディアフォルダを選択
-- **メニューバー** - File メニューからフォルダ変更 (Cmd+O)、キャッシュクリア
+## セットアップ
 
-## 技術スタック
-
-- **バックエンド**: Rust (Tauri v2)
-- **フロントエンド**: Vanilla JavaScript (フレームワーク不使用)
-- **画像処理**: image crate (サムネイル生成、リサイズ)
-- **HEIC変換**: macOS標準 `sips` コマンド
-- **動画サムネイル**: ffmpeg (npm ffmpeg-static)
-- **EXIF読み取り**: kamadak-exif crate
-- **動画メタデータ**: ffprobe
-- **画像認識**: macOS Vision Framework (`VNClassifyImageRequest` + `VNRecognizeTextRequest`) via Swift helper
-- **逆ジオコーディング**: macOS `CLGeocoder` via Swift helper
-- **ファイル配信**: ローカルHTTPサーバー (`tiny_http`) + Range requests
-
-## 必要要件
-
-- **macOS** (sipsコマンド使用のため必須)
-- **Rust** 1.77.2 以上
-- **Node.js** 18.x 以上
-- **Xcode** (Vision Framework, CLGeocoder のSwiftヘルパーコンパイルに必要)
-
-## インストール
+**必要なもの**: macOS, Xcode, Rust 1.77+, Node.js 18+
 
 ```bash
-# Rust (未インストールの場合)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# リポジトリをクローン
-git clone https://github.com/mczkzk/media-viewer.git
-cd media-viewer
-
-# 依存関係をインストール
 npm install
-```
-
-## 開発
-
-```bash
-# 開発サーバー起動 (ホットリロード対応)
-npm run tauri:dev
-
-# Rustテスト実行
-cd src-tauri && cargo test
-```
-
-## ビルド
-
-```bash
-# macOSアプリをビルド
-npm run tauri:build
-
-# ユニバーサルバイナリ (Apple Silicon + Intel)
-npm run tauri:build -- --target universal-apple-darwin
 ```
 
 ## 使い方
 
-### 初回起動
+### 起動
 
-1. アプリを起動すると「フォルダが選択されていません」と表示される
-2. File > フォルダを変更 (Cmd+O) でメディアフォルダを選択
-3. 選択したパスは自動保存され、次回起動時に自動読み込み
+```bash
+npm run tauri:dev        # 開発モード
+npm run install-app      # ビルド + /Applications にインストール
+```
 
-### 操作方法
+### 初回
 
-| 操作 | 動作 |
-|------|------|
-| クリック | 画像拡大、動画再生 |
-| 矢印キー (左右) | ライトボックス内でナビゲーション |
-| Escキー | ライトボックスを閉じる |
-| 年フィルター | 特定の年のみ表示 (階層モードに切替) |
-| 検索ボックス | イベント名やファイル名で検索 |
-| ソート | 新しい順/古い順を切り替え |
-| サイズ | サムネイルサイズ (小/中/大) を選択 |
-| 年インデックス | 右サイドバーの年をクリックでジャンプ |
-| 情報ボタン (i) | EXIF、カメラ情報、GPS地図を表示 (トグル開閉) |
-| 再スキャンボタン | メディアフォルダを再スキャン |
-| File > フォルダを変更 (Cmd+O) | メディアフォルダを切り替え (再起動不要) |
-| File > キャッシュをクリア | サムネイル、HEIC変換、スキャンキャッシュを削除 |
-| File > タグを再生成 | 画像タグを全削除して再解析 (ロジック更新時に使用) |
+File > フォルダを変更 (Cmd+O) でメディアフォルダを選択。以降は自動で記憶。
 
-### ディレクトリ構造の想定
+### フォルダ構成
 
 ```
 /your-media-path/
-├── 2000/
-│   ├── 2000-04/
-│   │   └── photo.jpg
-│   └── 2000-05/
+├── 2023/
+│   └── 2023-01-旅行/
+│       ├── photo.jpg
+│       └── video.mp4
 ├── 2024/
 │   └── 2024-06-vacation/
-│       ├── photo.jpg
-│       └── subfolder/       # 深い階層も対応
-│           └── photo.jpg
+│       └── subfolder/      # ネストOK
+│           └── photo.heic
 └── ...
 ```
 
-第1階層がグループ (通常は年)、第2階層がイベント。深いネストも再帰スキャン。
+第1階層 = 年、第2階層 = イベント。それ以深も再帰スキャン。
 
-## プロジェクト構成
+### 操作
 
-```
-media-viewer/
-├── src-tauri/                 # Rustバックエンド
-│   ├── Cargo.toml
-│   ├── tauri.conf.json        # Tauri設定 (CSP、ウィンドウ等)
-│   ├── capabilities/
-│   │   └── default.json       # 権限定義
-│   ├── helpers/
-│   │   ├── vision-tagger.swift    # 画像認識 (Vision Framework)
-│   │   └── reverse-geocoder.swift # GPS逆ジオコーディング
-│   └── src/
-│       ├── main.rs            # エントリポイント
-│       ├── lib.rs             # コマンド登録 + media:// プロトコル
-│       ├── video_server.rs    # ローカルHTTPサーバー (ファイル配信)
-│       ├── scanner.rs         # ディレクトリスキャン + キャッシュ
-│       ├── thumbnail.rs       # サムネイル + EXIF + HEIC変換 + GPS抽出
-│       ├── tagger.rs          # 画像タグ付け + GPS地名変換
-│       └── label_dict.rs      # 英語→日本語タグ翻訳辞書
-├── public/                    # フロントエンド
-│   ├── index.html
-│   ├── css/style.css
-│   └── js/
-│       ├── tauri-app.js       # Tauri統合レイヤー
-│       ├── gallery.js         # グリッド表示・フィルタ
-│       ├── virtual-scroll.js  # 仮想スクロール (大量データ対応)
-│       ├── lightbox.js        # 拡大表示・スライドショー
-│       └── kana-converter.js  # 日本語かな検索
-├── docs/
-│   └── SPEC.md               # アプリケーション仕様書
-└── package.json
-```
+| 操作 | 動作 |
+|------|------|
+| 検索ボックス | タグ、地名、ファイル名で検索 (日英+ローマ字対応) |
+| 年フィルタ | 年で絞り込み (Finder風フォルダ表示に切替) |
+| クリック | ライトボックスで拡大表示/動画再生 |
+| 矢印キー | ライトボックス内ナビゲーション |
+| Esc | ライトボックスを閉じる |
+| (i) ボタン | EXIF、GPS地図、タグを表示 |
+| 年インデックス (右端) | 年をクリックでジャンプ |
 
-## パフォーマンス
+### メニュー
 
-- **初回起動**: ディレクトリスキャン (7,000ファイルで約10秒)
-- **2回目以降**: キャッシュ使用 (即座に起動)
-- **サムネイル**: オンデマンド生成 + 永続キャッシュ (300x300 JPEG)
-- **HEIC変換**: 初回のみ変換、永続キャッシュから即座に配信
-- **動画**: ローカルHTTPサーバーでRange requestsストリーミング再生
-- **ファイル配信**: 全コンテンツをローカルHTTPサーバー (別スレッド) で配信、UIブロックなし
+| メニュー | 動作 |
+|---------|------|
+| File > フォルダを変更 (Cmd+O) | メディアフォルダ切り替え |
+| File > キャッシュをクリア | サムネイル、変換キャッシュ、スキャン結果を削除 |
+| File > タグを再生成 | 画像タグを全削除して再解析 |
+
+### 検索の仕組み
+
+初回起動時にバックグラウンドで全画像を解析:
+- **macOS Vision Framework** で画像内容を分類 (食べ物、建物、動物 等)
+- **OCR** で画像内の文字を読み取り (看板、メニュー 等)
+- **GPS逆ジオコーディング** で撮影地名を取得 (日英両方)
+
+タグは永続キャッシュされ、2回目以降は新規追加分のみ処理。
 
 ## 対応フォーマット
 
-### 画像
-- JPG/JPEG
-- PNG
-- GIF
-- HEIC/HEIF (自動JPEG変換)
-
-### 動画
-- MP4
-- MOV
-- AVI
-- M4V
-- MKV
+**画像**: JPG, PNG, GIF, HEIC/HEIF
+**動画**: MP4, MOV, AVI, M4V, MKV
 
 ## トラブルシューティング
 
-### サムネイルが表示されない
+| 問題 | 対処 |
+|------|------|
+| サムネイルが表示されない | 再スキャンボタン、または File > キャッシュをクリア |
+| 検索でヒットしない | File > タグを再生成 (初回は20-30分) |
+| HEICが表示されない | `which sips` で確認 (macOS標準で存在するはず) |
 
-アプリ内の再スキャンボタンを押す。改善しない場合は File > キャッシュをクリア を実行。
+## 開発者向け
 
-手動で削除する場合:
-```bash
-rm ~/Library/Application\ Support/com.mediaviewer.app/cache/thumbnails/*.jpg
-rm ~/Library/Application\ Support/com.mediaviewer.app/cache/converted/*.jpg
-rm ~/Library/Application\ Support/com.mediaviewer.app/cache/index.json
-```
-
-### HEICファイルが表示されない
-
-macOSの `sips` コマンドが必要:
-```bash
-which sips  # 通常は /usr/bin/sips
-```
-
-### Rustがインストールされていない
+詳細な仕様: [docs/SPEC.md](docs/SPEC.md)
 
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source "$HOME/.cargo/env"
+npm run tauri:dev          # 開発 (ホットリロード)
+npm run install-app        # ビルド + インストール + アドホック署名
+cd src-tauri && cargo test  # Rustテスト
 ```
 
 ## ライセンス
