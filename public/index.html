@@ -256,9 +256,10 @@
           }
         });
 
-        // Background tagging
+        // Background tagging (non-blocking, updates search incrementally)
         if (tauriApp.isTauri) {
           const BATCH_SIZE = 20;
+          const REFRESH_INTERVAL = 100; // refresh search fields every N items
           const untagged = gallery.mediaItems.filter(i => !gallery.tagMap[i.path]);
 
           if (untagged.length > 0) {
@@ -273,12 +274,21 @@
                 const count = await tauriApp.tagImages(paths);
                 tagged += count;
                 statsText.textContent = `タグ付け中... ${tagged}/${total}`;
+
+                // Periodically refresh search fields so new tags are searchable
+                if (tagged % REFRESH_INTERVAL < BATCH_SIZE) {
+                  gallery.tagMap = await tauriApp.getTags();
+                  gallery.preConvertSearchFields();
+                  if (gallery.searchQuery) {
+                    gallery.applyFilters();
+                  }
+                }
               } catch (e) {
                 console.error('Tagging batch failed:', e);
               }
             }
 
-            // Reload tags and refresh search fields
+            // Final refresh
             gallery.tagMap = await tauriApp.getTags();
             gallery.preConvertSearchFields();
             statsText.textContent = savedStats;
