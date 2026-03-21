@@ -217,10 +217,10 @@ fn build_location_tags(en_location: &str) -> Vec<String> {
             }
         }
     }
-    // Add Japanese prefecture names via geo_dict
+    // Add Japanese translations via geo_dict
     let tags_snapshot: Vec<String> = tags.clone();
     for tag in &tags_snapshot {
-        if let Some(ja) = geo_dict::reverse_prefecture(tag) {
+        for ja in geo_dict::translate(tag) {
             let ja_str = ja.to_string();
             if !tags.contains(&ja_str) {
                 tags.push(ja_str);
