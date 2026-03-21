@@ -94,7 +94,7 @@ Tauri WebView (Frontend) → IPC/HTTP → Rust Backend → Local Files
 #### vision-tagger.swift
 - **入力**: 画像パス (引数、複数可)
 - **出力**: `[{"labels":["sky","outdoor"], "text":["MENU","HOTEL"]}]`
-- `build.rs` でコンパイル、アプリバンドル `Resources/helpers/` に配置
+- `npm run build:helpers` でコンパイル、アプリバンドル `Resources/helpers/` に配置
 
 #### reverse-geocoder.swift
 - **入力**: `lat,lon` (引数、複数可)

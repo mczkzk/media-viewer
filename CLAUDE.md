@@ -35,6 +35,7 @@ rm ~/Library/Application\ Support/com.mediaviewer.app/cache/index.json
 **Setup:**
 ```bash
 npm install
+npm run build:helpers   # Compile Swift helpers (first time or after .swift changes)
 ```
 
 ## Architecture Overview
