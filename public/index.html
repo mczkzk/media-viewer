@@ -102,6 +102,12 @@
         // Load media data
         await gallery.load();
 
+        // Load tags and start background tagging
+        if (tauriApp.isTauri) {
+          gallery.tagMap = await tauriApp.getTags();
+          gallery.preConvertSearchFields();
+        }
+
         // Create lightbox instance
         const lightbox = new Lightbox(gallery);
 
@@ -249,6 +255,36 @@
             statsText.parentElement.style.minWidth = '';
           }
         });
+
+        // Background tagging
+        if (tauriApp.isTauri) {
+          const BATCH_SIZE = 20;
+          const imageItems = gallery.mediaItems.filter(i => i.type === 'image');
+          const untagged = imageItems.filter(i => !gallery.tagMap[i.path]);
+
+          if (untagged.length > 0) {
+            let tagged = 0;
+            const total = untagged.length;
+            const savedStats = statsText.textContent;
+
+            for (let i = 0; i < untagged.length; i += BATCH_SIZE) {
+              const batch = untagged.slice(i, i + BATCH_SIZE);
+              const paths = batch.map(item => item.path);
+              try {
+                const count = await tauriApp.tagImages(paths);
+                tagged += count;
+                statsText.textContent = `タグ付け中... ${tagged}/${total}`;
+              } catch (e) {
+                console.error('Tagging batch failed:', e);
+              }
+            }
+
+            // Reload tags and refresh search fields
+            gallery.tagMap = await tauriApp.getTags();
+            gallery.preConvertSearchFields();
+            statsText.textContent = savedStats;
+          }
+        }
 
       } catch (error) {
         console.error('Failed to initialize app:', error);

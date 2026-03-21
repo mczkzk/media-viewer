@@ -9,6 +9,7 @@ class Gallery {
     this.sortOrder = 'desc';
     this.displayMode = 'flat'; // 'flat' or 'hierarchical'
     this.currentPath = [];
+    this.tagMap = {};  // { relativePath: ["tag1", "tag2"] }
   }
 
   async load({ force = false } = {}) {
@@ -54,6 +55,17 @@ class Gallery {
       item._filenameRomaji = converter.toRomaji(item.filename).toLowerCase();
       item._filenameHiragana = converter.toHiragana(item.filename);
       item._filenameKatakana = converter.toKatakana(item.filename);
+
+      // Tag search fields
+      const tags = this.tagMap[item.path];
+      if (tags && tags.length > 0) {
+        const joined = tags.join(' ');
+        item._tags = tags;
+        item._tagsLower = joined.toLowerCase();
+        item._tagsRomaji = converter.toRomaji(joined).toLowerCase();
+        item._tagsHiragana = converter.toHiragana(joined);
+        item._tagsKatakana = converter.toKatakana(joined);
+      }
     });
   }
 
@@ -328,6 +340,12 @@ class Gallery {
     if (item._pathKatakana && item._pathKatakana.includes(q.queryKatakana)) return true;
     if (item._eventKatakana && item._eventKatakana.includes(q.queryKatakana)) return true;
     if (item._filenameKatakana && item._filenameKatakana.includes(q.queryKatakana)) return true;
+
+    // Tags
+    if (item._tagsLower && item._tagsLower.includes(q.queryLower)) return true;
+    if (item._tagsRomaji && item._tagsRomaji.includes(q.queryRomaji)) return true;
+    if (item._tagsHiragana && item._tagsHiragana.includes(q.queryHiragana)) return true;
+    if (item._tagsKatakana && item._tagsKatakana.includes(q.queryKatakana)) return true;
 
     return false;
   }

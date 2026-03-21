@@ -1,4 +1,5 @@
 mod scanner;
+mod tagger;
 mod thumbnail;
 mod video_server;
 
@@ -154,6 +155,22 @@ async fn clear_cache(app: tauri::AppHandle) -> Result<String, String> {
 
     let size_mb = total_bytes as f64 / (1024.0 * 1024.0);
     Ok(format!("{total_files}ファイル（{size_mb:.1}MB）を削除しました"))
+}
+
+#[tauri::command]
+async fn get_tags(app: tauri::AppHandle) -> Result<std::collections::HashMap<String, Vec<String>>, String> {
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(tagger::load_tags(&app_data_dir))
+}
+
+#[tauri::command]
+async fn tag_images(
+    app: tauri::AppHandle,
+    paths: Vec<String>,
+    base_path: String,
+) -> Result<usize, String> {
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    tagger::tag_images(&paths, &base_path, &app_data_dir)
 }
 
 struct VideoServerPort(u16);
@@ -379,7 +396,9 @@ pub fn run() {
             batch_ensure_thumbnails,
             get_media_info,
             get_video_server_port,
-            clear_cache
+            clear_cache,
+            get_tags,
+            tag_images
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

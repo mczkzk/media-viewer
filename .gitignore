@@ -20,6 +20,9 @@ cache/
 # Allow Tauri icon files
 !src-tauri/icons/**
 
+# Compiled Swift helper
+src-tauri/helpers/vision-tagger
+
 # Rust build output
 src-tauri/target/
 src-tauri/gen/
