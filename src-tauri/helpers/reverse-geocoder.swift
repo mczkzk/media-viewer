@@ -3,6 +3,7 @@ import Foundation
 
 // Usage: reverse-geocoder <lat,lon> [lat,lon ...]
 // Output: JSON array of objects with "ja" and "en" keys, one per coordinate pair
+// Processes sequentially to avoid CLGeocoder rate limiting.
 
 guard CommandLine.arguments.count > 1 else {
     fputs("Usage: reverse-geocoder <lat,lon> [lat,lon ...]\n", stderr)
@@ -11,7 +12,6 @@ guard CommandLine.arguments.count > 1 else {
 
 let args = Array(CommandLine.arguments.dropFirst())
 var results: [[String: String]] = Array(repeating: ["ja": "", "en": ""], count: args.count)
-var pending = args.count * 2  // 2 locales per coordinate
 
 func buildLocationString(_ placemark: CLPlacemark) -> String {
     var parts: [String] = []
@@ -29,50 +29,52 @@ func buildLocationString(_ placemark: CLPlacemark) -> String {
     return parts.joined(separator: " ")
 }
 
-func checkDone() {
-    if pending == 0 {
+let semaphore = DispatchSemaphore(value: 0)
+
+func processIndex(_ index: Int) {
+    guard index < args.count else {
+        // All done
         let json = try! JSONSerialization.data(withJSONObject: results, options: [])
         print(String(data: json, encoding: .utf8)!)
         exit(0)
+        return
     }
-}
 
-for (index, coord) in args.enumerated() {
+    let coord = args[index]
     let parts = coord.split(separator: ",")
     guard parts.count == 2,
           let lat = Double(parts[0]),
           let lon = Double(parts[1]) else {
-        pending -= 2
-        checkDone()
-        continue
+        processIndex(index + 1)
+        return
     }
 
     let location = CLLocation(latitude: lat, longitude: lon)
-    let delay = Double(index) * 0.15
 
-    // Japanese locale
-    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-        let geocoder = CLGeocoder()
-        geocoder.reverseGeocodeLocation(location, preferredLocale: Locale(identifier: "ja_JP")) { placemarks, error in
-            if let placemark = placemarks?.first {
-                results[index]["ja"] = buildLocationString(placemark)
-            }
-            pending -= 1
-            checkDone()
+    // Japanese
+    let geoJa = CLGeocoder()
+    geoJa.reverseGeocodeLocation(location, preferredLocale: Locale(identifier: "ja_JP")) { placemarks, _ in
+        if let placemark = placemarks?.first {
+            results[index]["ja"] = buildLocationString(placemark)
         }
-    }
 
-    // English locale
-    DispatchQueue.main.asyncAfter(deadline: .now() + delay + 0.05) {
-        let geocoder = CLGeocoder()
-        geocoder.reverseGeocodeLocation(location, preferredLocale: Locale(identifier: "en_US")) { placemarks, error in
+        // English (after JA completes)
+        let geoEn = CLGeocoder()
+        geoEn.reverseGeocodeLocation(location, preferredLocale: Locale(identifier: "en_US")) { placemarks, _ in
             if let placemark = placemarks?.first {
                 results[index]["en"] = buildLocationString(placemark)
             }
-            pending -= 1
-            checkDone()
+
+            // Next coordinate (sequential)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                processIndex(index + 1)
+            }
         }
     }
+}
+
+DispatchQueue.main.async {
+    processIndex(0)
 }
 
 RunLoop.main.run()
