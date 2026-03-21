@@ -6,7 +6,8 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "install-app": "tauri build --bundles app && rm -rf '/Applications/Media Viewer.app' && cp -R src-tauri/target/release/bundle/macos/'Media Viewer.app' /Applications/ && codesign --force --deep -s - '/Applications/Media Viewer.app'"
+    "build:helpers": "cd src-tauri/helpers && xcrun swiftc -O -o vision-tagger vision-tagger.swift && xcrun swiftc -O -o reverse-geocoder reverse-geocoder.swift",
+    "install-app": "npm run build:helpers && tauri build --bundles app && rm -rf '/Applications/Media Viewer.app' && cp -R src-tauri/target/release/bundle/macos/'Media Viewer.app' /Applications/ && codesign --force --deep -s - '/Applications/Media Viewer.app'"
   },
   "keywords": [
     "media",
