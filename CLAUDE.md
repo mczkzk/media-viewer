@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Iron Rule
+
+**NEVER modify, edit, move, rename, or delete original media files.** The user's media folder is strictly read-only. All app data (tags, thumbnails, caches) goes to AppData only.
+
 ## Development Commands
 
 **Start dev (Tauri + hot reload):**
