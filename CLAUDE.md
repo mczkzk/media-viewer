@@ -70,6 +70,16 @@ npm install
 4. **Media Info (src-tauri/src/thumbnail.rs::get_media_info)**:
    - `kamadak-exif` for EXIF data (camera, lens, GPS, settings)
    - `ffprobe` for video metadata (duration, codec, fps)
+   - `get_gps()`: GPS extraction with HEIC fallback via `mdls`
+
+5. **Image Tagger (src-tauri/src/tagger.rs)**:
+   - Calls `vision-tagger` Swift helper for image classification (macOS Vision Framework)
+   - Calls `reverse-geocoder` Swift helper for GPS-to-place-name conversion (CLGeocoder)
+   - Stores tags in `AppData/cache/tags.json` (not cleared by cache clear)
+   - Tags include both English and Japanese labels for bilingual search
+   - `label_dict.rs`: ~500 entry English-to-Japanese translation table
+   - Videos tagged via cached thumbnail (1s frame)
+   - Swift helpers compiled by `build.rs`, bundled in `Resources/helpers/`
 
 ### Tauri IPC Commands
 
@@ -85,6 +95,8 @@ npm install
 | `get_media_info` | `path`, `base_path` | `JSON` | EXIF/video metadata |
 | `get_video_server_port` | - | `u16` | Local HTTP server port |
 | `clear_cache` | - | `String` | Delete all caches (thumbnails + converted + scan) |
+| `get_tags` | - | `HashMap<String, Vec<String>>` | Get all image tags |
+| `tag_images` | `paths[]`, `base_path` | `usize` | Batch tag images (Vision + GPS) |
 
 ### Frontend Architecture (Vanilla JS)
 
@@ -117,6 +129,8 @@ npm install
   - `currentPath`: Array tracking folder depth in hierarchical mode
   - Year index: Auto-thins based on screen height, syncs with scroll
   - Folder extraction: Builds virtual folder tree from flat `path` field
+  - `tagMap`: image tags loaded from backend, searched via `_matchesQuery()`
+  - Search matches: path, event, filename, **tags** (EN+JA), all with kana conversion
 
 - **VirtualScroll (public/js/virtual-scroll.js)**:
   - Renders only visible rows to minimize DOM elements
