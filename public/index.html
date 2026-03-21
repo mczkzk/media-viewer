@@ -229,6 +229,17 @@
           });
         }
 
+        // Menu: regenerate tags handler
+        if (window.__TAURI__) {
+          window.__TAURI__.event.listen('menu-regenerate-tags', async () => {
+            if (!confirm('タグを全て削除して再生成しますか？\n（時間がかかります）')) return;
+            await window.__TAURI__.core.invoke('clear_tags');
+            gallery.tagMap = {};
+            gallery.preConvertSearchFields();
+            location.reload();
+          });
+        }
+
         // Rescan button handler
         const rescanBtn = document.getElementById('rescan-btn');
         rescanBtn.addEventListener('click', async () => {

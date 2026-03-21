@@ -90,9 +90,14 @@ fn classify_batch(paths: &[String]) -> Result<Vec<Vec<String>>, String> {
 use crate::label_dict;
 use crate::thumbnail;
 
-/// Reverse-geocode a batch of GPS coordinates to location names.
-/// coords: Vec of "lat,lon" strings
-fn reverse_geocode(coords: &[String]) -> Result<Vec<String>, String> {
+#[derive(Deserialize)]
+struct GeoResult {
+    ja: String,
+    en: String,
+}
+
+/// Reverse-geocode a batch of GPS coordinates to location names (JA + EN).
+fn reverse_geocode(coords: &[String]) -> Result<Vec<GeoResult>, String> {
     let geocoder = find_helper("reverse-geocoder")
         .ok_or("reverse-geocoder binary not found")?;
 
@@ -163,15 +168,13 @@ pub fn tag_images(
         Vec::new()
     };
 
-    // Build a map: path index -> location string
-    let mut location_map: HashMap<usize, String> = HashMap::new();
-    for (j, &idx) in gps_indices.iter().enumerate() {
-        if let Some(loc) = location_names.get(j) {
-            if !loc.is_empty() {
-                location_map.insert(idx, loc.clone());
-            }
-        }
-    }
+    // Build a map: path index -> GeoResult (JA + EN)
+    let location_map: HashMap<usize, &GeoResult> = gps_indices
+        .iter()
+        .enumerate()
+        .filter_map(|(j, &idx)| location_names.get(j).map(|geo| (idx, geo)))
+        .filter(|(_, geo)| !geo.ja.is_empty() || !geo.en.is_empty())
+        .collect();
 
     let mut tags = load_tags(app_data_dir);
     let mut count = 0;
@@ -188,11 +191,13 @@ pub fn tag_images(
                 tag_set.push(ja_str);
             }
         }
-        // Add location tags from GPS
-        if let Some(location) = location_map.get(&i) {
-            for part in location.split_whitespace() {
-                if !tag_set.contains(&part.to_string()) {
-                    tag_set.push(part.to_string());
+        // Add location tags from GPS (both JA and EN)
+        if let Some(geo) = location_map.get(&i) {
+            for loc_str in [&geo.ja, &geo.en] {
+                for part in loc_str.split_whitespace() {
+                    if !tag_set.contains(&part.to_string()) {
+                        tag_set.push(part.to_string());
+                    }
                 }
             }
         }

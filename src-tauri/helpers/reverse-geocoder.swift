@@ -2,11 +2,7 @@ import CoreLocation
 import Foundation
 
 // Usage: reverse-geocoder <lat,lon> [lat,lon ...]
-// Output: JSON array of location strings, one per coordinate pair
-
-// Force Japanese locale for place names
-setlocale(LC_ALL, "ja_JP.UTF-8")
-UserDefaults.standard.set(["ja"], forKey: "AppleLanguages")
+// Output: JSON array of objects with "ja" and "en" keys, one per coordinate pair
 
 guard CommandLine.arguments.count > 1 else {
     fputs("Usage: reverse-geocoder <lat,lon> [lat,lon ...]\n", stderr)
@@ -14,54 +10,69 @@ guard CommandLine.arguments.count > 1 else {
 }
 
 let args = Array(CommandLine.arguments.dropFirst())
-var results: [String] = Array(repeating: "", count: args.count)
-var pending = args.count
+var results: [[String: String]] = Array(repeating: ["ja": "", "en": ""], count: args.count)
+var pending = args.count * 2  // 2 locales per coordinate
+
+func buildLocationString(_ placemark: CLPlacemark) -> String {
+    var parts: [String] = []
+    if let country = placemark.country { parts.append(country) }
+    if let admin = placemark.administrativeArea { parts.append(admin) }
+    if let locality = placemark.locality, locality != placemark.administrativeArea {
+        parts.append(locality)
+    }
+    if let sub = placemark.subLocality { parts.append(sub) }
+    if let name = placemark.name,
+       name != placemark.locality,
+       name != placemark.subLocality {
+        parts.append(name)
+    }
+    return parts.joined(separator: " ")
+}
+
+func checkDone() {
+    if pending == 0 {
+        let json = try! JSONSerialization.data(withJSONObject: results, options: [])
+        print(String(data: json, encoding: .utf8)!)
+        exit(0)
+    }
+}
 
 for (index, coord) in args.enumerated() {
     let parts = coord.split(separator: ",")
     guard parts.count == 2,
           let lat = Double(parts[0]),
           let lon = Double(parts[1]) else {
-        pending -= 1
+        pending -= 2
+        checkDone()
         continue
     }
 
     let location = CLLocation(latitude: lat, longitude: lon)
-    let geocoder = CLGeocoder()
-
-    // Stagger requests to avoid rate limiting
     let delay = Double(index) * 0.15
 
+    // Japanese locale
     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-        geocoder.reverseGeocodeLocation(location) { placemarks, error in
-            defer {
-                pending -= 1
-                if pending == 0 {
-                    let json = try! JSONSerialization.data(withJSONObject: results, options: [])
-                    print(String(data: json, encoding: .utf8)!)
-                    exit(0)
-                }
+        let geocoder = CLGeocoder()
+        geocoder.reverseGeocodeLocation(location, preferredLocale: Locale(identifier: "ja_JP")) { placemarks, error in
+            if let placemark = placemarks?.first {
+                results[index]["ja"] = buildLocationString(placemark)
             }
+            pending -= 1
+            checkDone()
+        }
+    }
 
-            guard let placemark = placemarks?.first else { return }
-
-            var locationParts: [String] = []
-            if let country = placemark.country { locationParts.append(country) }
-            if let admin = placemark.administrativeArea { locationParts.append(admin) }
-            if let locality = placemark.locality, locality != placemark.administrativeArea {
-                locationParts.append(locality)
+    // English locale
+    DispatchQueue.main.asyncAfter(deadline: .now() + delay + 0.05) {
+        let geocoder = CLGeocoder()
+        geocoder.reverseGeocodeLocation(location, preferredLocale: Locale(identifier: "en_US")) { placemarks, error in
+            if let placemark = placemarks?.first {
+                results[index]["en"] = buildLocationString(placemark)
             }
-            if let sub = placemark.subLocality { locationParts.append(sub) }
-            if let name = placemark.name,
-               name != placemark.locality,
-               name != placemark.subLocality {
-                locationParts.append(name)
-            }
-
-            results[index] = locationParts.joined(separator: " ")
+            pending -= 1
+            checkDone()
         }
     }
 }
 
-// Run the main run loop to allow async callbacks
 RunLoop.main.run()
