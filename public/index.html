@@ -15,7 +15,7 @@
         <select id="year-filter" class="filter-select">
           <option value="">すべての年</option>
         </select>
-        <input type="text" id="search-input" class="search-input" placeholder="イベント名で検索...">
+        <input type="text" id="search-input" class="search-input" placeholder="検索...">
         <select id="sort-order" class="filter-select">
           <option value="desc">新しい順</option>
           <option value="asc">古い順</option>
@@ -261,6 +261,15 @@
           const BATCH_SIZE = 20;
           const REFRESH_INTERVAL = 100; // refresh search fields every N items
           const untagged = gallery.mediaItems.filter(i => !gallery.tagMap[i.path]);
+
+          // Pre-generate video thumbnails so they can be tagged
+          const untaggedVideos = untagged.filter(i => i.type === 'video');
+          if (untaggedVideos.length > 0) {
+            const videoPaths = untaggedVideos.map(i => i.path);
+            for (let i = 0; i < videoPaths.length; i += BATCH_SIZE) {
+              await tauriApp.batchEnsureThumbnails(videoPaths.slice(i, i + BATCH_SIZE));
+            }
+          }
 
           if (untagged.length > 0) {
             let tagged = 0;
