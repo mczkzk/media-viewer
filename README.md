@@ -154,9 +154,7 @@ media-viewer/
 │       ├── lightbox.js        # 拡大表示・スライドショー
 │       └── kana-converter.js  # 日本語かな検索
 ├── docs/
-│   ├── remaining-tasks.md
-│   ├── tauri-migration-plan.md
-│   └── tauri-implementation-notes.md
+│   └── SPEC.md               # アプリケーション仕様書
 └── package.json
 ```
 

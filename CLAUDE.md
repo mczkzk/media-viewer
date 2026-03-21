@@ -187,3 +187,9 @@ npm install
 - **ffmpeg/ffprobe**: Bundled via npm (`ffmpeg-static`, `@ffprobe-installer/ffprobe`) for dev; also found via well-known paths (`/opt/homebrew/bin`, `/usr/local/bin`) in built app
 - **Rust** 1.77.2+
 - **Node.js** 18+ (for Tauri CLI and npm dependencies)
+
+## Documentation Rules
+
+- **After implementing a feature or making significant changes**, update `docs/SPEC.md` to reflect the current state. SPEC.md is the single source of truth for the application's full specification.
+- Keep SPEC.md in sync with the actual implementation. If you add a new IPC command, component, or feature, add it to SPEC.md.
+- Do NOT update SPEC.md for trivial bug fixes or refactors that don't change behavior.
