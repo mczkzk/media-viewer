@@ -11,6 +11,7 @@ class Lightbox {
     this.infoBtn = document.getElementById('lightbox-info-btn');
     this.infoPanel = document.getElementById('lightbox-info-panel');
     this.infoPanelContent = document.getElementById('info-panel-content');
+    this.infoPanelOpen = false;
 
     this.bindEvents();
   }
@@ -76,14 +77,15 @@ class Lightbox {
 
     this.modal.classList.add('active');
 
-    if (this.infoPanel.classList.contains('active')) {
-      this.loadMediaInfo();
+    if (this.infoPanelOpen) {
+      this.openInfoPanel();
     }
   }
 
   close() {
     this.modal.classList.remove('active');
-    this.closeInfoPanel();
+    this.infoPanel.classList.remove('active');
+    this.modal.classList.remove('info-open');
 
     const video = this.content.querySelector('video');
     if (video) {
@@ -112,12 +114,14 @@ class Lightbox {
   }
 
   async openInfoPanel() {
+    this.infoPanelOpen = true;
     this.infoPanel.classList.add('active');
     this.modal.classList.add('info-open');
     await this.loadMediaInfo();
   }
 
   closeInfoPanel() {
+    this.infoPanelOpen = false;
     this.infoPanel.classList.remove('active');
     this.modal.classList.remove('info-open');
   }
