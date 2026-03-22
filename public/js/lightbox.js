@@ -72,7 +72,7 @@ class Lightbox {
       video.src = mediaUrl;
       video.controls = true;
       video.autoplay = true;
-      video.volume = 0.5;
+      video.volume = 0.3;
       this.content.appendChild(video);
     }
 
