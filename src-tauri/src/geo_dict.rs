@@ -2,7 +2,7 @@
 /// Returns multiple tags: prefecture name + city name if applicable.
 pub fn translate(en: &str) -> Vec<&'static str> {
     match en {
-        // Prefectures (with city name where same)
+        // ===== 47 Prefectures =====
         "Hokkaido" => vec!["北海道"],
         "Aomori" => vec!["青森県", "青森"],
         "Iwate" => vec!["岩手県"],
@@ -23,7 +23,7 @@ pub fn translate(en: &str) -> Vec<&'static str> {
         "Fukui" => vec!["福井県", "福井"],
         "Yamanashi" => vec!["山梨県"],
         "Nagano" => vec!["長野県", "長野"],
-        "Gifu" => vec!["岐阜県"],
+        "Gifu" => vec!["岐阜県", "岐阜"],
         "Shizuoka" => vec!["静岡県", "静岡"],
         "Aichi" => vec!["愛知県"],
         "Mie" => vec!["三重県"],
@@ -37,13 +37,13 @@ pub fn translate(en: &str) -> Vec<&'static str> {
         "Shimane" => vec!["島根県"],
         "Okayama" => vec!["岡山県", "岡山"],
         "Hiroshima" => vec!["広島県", "広島"],
-        "Yamaguchi" => vec!["山口県"],
+        "Yamaguchi" => vec!["山口県", "山口"],
         "Tokushima" => vec!["徳島県", "徳島"],
         "Kagawa" => vec!["香川県"],
         "Ehime" => vec!["愛媛県"],
         "Kochi" => vec!["高知県", "高知"],
         "Fukuoka" => vec!["福岡県", "福岡"],
-        "Saga" => vec!["佐賀県"],
+        "Saga" => vec!["佐賀県", "佐賀"],
         "Nagasaki" => vec!["長崎県", "長崎"],
         "Kumamoto" => vec!["熊本県", "熊本"],
         "Oita" => vec!["大分県", "大分"],
@@ -51,7 +51,7 @@ pub fn translate(en: &str) -> Vec<&'static str> {
         "Kagoshima" => vec!["鹿児島県", "鹿児島"],
         "Okinawa" => vec!["沖縄県", "沖縄"],
 
-        // Cities / Landmarks
+        // ===== Hokkaido =====
         "Sapporo" => vec!["札幌"],
         "Hakodate" => vec!["函館"],
         "Asahikawa" => vec!["旭川"],
@@ -60,21 +60,29 @@ pub fn translate(en: &str) -> Vec<&'static str> {
         "Otaru" => vec!["小樽"],
         "Niseko" => vec!["ニセコ"],
         "Furano" => vec!["富良野"],
+        "Biei" => vec!["美瑛"],
+        "Noboribetsu" => vec!["登別"],
+        "Toyako" | "Toya" => vec!["洞爺湖"],
+        "Wakkanai" => vec!["稚内"],
+        "Abashiri" => vec!["網走"],
+        "Shakotan" => vec!["積丹"],
+
+        // ===== Tohoku =====
         "Sendai" => vec!["仙台"],
         "Morioka" => vec!["盛岡"],
         "Hirosaki" => vec!["弘前"],
-        "Matsumoto" => vec!["松本"],
-        "Karuizawa" => vec!["軽井沢"],
-        "Hakuba" => vec!["白馬"],
-        "Nozawa" | "Nozawa Onsen" => vec!["野沢温泉"],
-        "Kanazawa" => vec!["金沢"],
-        "Utsunomiya" => vec!["宇都宮"],
-        "Nikko" => vec!["日光"],
-        "Maebashi" => vec!["前橋"],
-        "Kusatsu" => vec!["草津"],
-        "Mito" => vec!["水戸"],
-        "Narita" => vec!["成田"],
-        "Kawagoe" => vec!["川越"],
+        "Aizuwakamatsu" => vec!["会津若松"],
+        "Towada" => vec!["十和田"],
+        "Hiraizumi" => vec!["平泉"],
+        "Tono" => vec!["遠野"],
+        "Kakunodate" => vec!["角館"],
+        "Matsushima" => vec!["松島"],
+        "Sakata" => vec!["酒田"],
+        "Tsuruoka" => vec!["鶴岡"],
+        "Zao" => vec!["蔵王"],
+        "Naruko" => vec!["鳴子"],
+
+        // ===== Kanto: Tokyo areas =====
         "Shibuya" => vec!["渋谷"],
         "Shinjuku" => vec!["新宿"],
         "Ginza" => vec!["銀座"],
@@ -85,51 +93,16 @@ pub fn translate(en: &str) -> Vec<&'static str> {
         "Ueno" => vec!["上野"],
         "Odaiba" => vec!["お台場"],
         "Harajuku" => vec!["原宿"],
-        "Yokohama" => vec!["横浜"],
-        "Kamakura" => vec!["鎌倉"],
-        "Hakone" => vec!["箱根"],
-        "Enoshima" => vec!["江ノ島"],
-        "Kawasaki" => vec!["川崎"],
-        "Atami" => vec!["熱海"],
-        "Ito" => vec!["伊東"],
-        "Numazu" => vec!["沼津"],
-        "Hamamatsu" => vec!["浜松"],
-        "Nagoya" => vec!["名古屋"],
-        "Takayama" => vec!["高山"],
-        "Shirakawa" | "Shirakawa-go" => vec!["白川郷"],
-        "Ise" => vec!["伊勢"],
-        "Toba" => vec!["鳥羽"],
-        "Arashiyama" => vec!["嵐山"],
-        "Fushimi" => vec!["伏見"],
-        "Uji" => vec!["宇治"],
-        "Namba" => vec!["難波"],
-        "Umeda" => vec!["梅田"],
-        "Kobe" => vec!["神戸"],
-        "Himeji" => vec!["姫路"],
-        "Koyasan" | "Koya" => vec!["高野山"],
-        "Shirahama" => vec!["白浜"],
-        "Kurashiki" => vec!["倉敷"],
-        "Miyajima" => vec!["宮島"],
-        "Onomichi" => vec!["尾道"],
-        "Matsue" => vec!["松江"],
-        "Izumo" => vec!["出雲"],
-        "Takamatsu" => vec!["高松"],
-        "Matsuyama" => vec!["松山"],
-        "Hakata" => vec!["博多"],
-        "Kitakyushu" => vec!["北九州"],
-        "Dazaifu" => vec!["太宰府"],
-        "Sasebo" => vec!["佐世保"],
-        "Aso" => vec!["阿蘇"],
-        "Beppu" => vec!["別府"],
-        "Yufuin" => vec!["湯布院"],
-        "Yakushima" => vec!["屋久島"],
-        "Tanegashima" => vec!["種子島"],
-        "Naha" => vec!["那覇"],
-        "Ishigaki" => vec!["石垣"],
-        "Miyako" => vec!["宮古"],
+        "Marunouchi" => vec!["丸の内"],
+        "Takanawa" => vec!["高輪"],
+        "Akasaka" => vec!["赤坂"],
+        "Tsukiji" => vec!["築地"],
+        "Toyosu" => vec!["豊洲"],
+        "Ebisu" => vec!["恵比寿"],
+        "Azabu" => vec!["麻布"],
 
-        // Tokyo wards / areas
-        "Chiyoda" => vec!["千代田"],
+        // ===== Kanto: Tokyo wards =====
+        "Chiyoda" => vec!["千代田区"],
         "Minato" => vec!["港区"],
         "Chuo" => vec!["中央区"],
         "Taito" => vec!["台東区"],
@@ -145,43 +118,168 @@ pub fn translate(en: &str) -> Vec<&'static str> {
         "Kita" => vec!["北区"],
         "Itabashi" => vec!["板橋区"],
         "Adachi" => vec!["足立区"],
+        "Katsushika" => vec!["葛飾区"],
         "Edogawa" => vec!["江戸川区"],
         "Bunkyo" => vec!["文京区"],
         "Ota" => vec!["大田区"],
         "Arakawa" => vec!["荒川区"],
-        "Marunouchi" => vec!["丸の内"],
-        "Takanawa" => vec!["高輪"],
-        "Akasaka" => vec!["赤坂"],
 
-        // Kyoto areas
+        // ===== Kanto: Kanagawa =====
+        "Yokohama" => vec!["横浜"],
+        "Kamakura" => vec!["鎌倉"],
+        "Hakone" => vec!["箱根"],
+        "Enoshima" => vec!["江ノ島"],
+        "Kawasaki" => vec!["川崎"],
+        "Yokosuka" => vec!["横須賀"],
+        "Miyanoshita" => vec!["宮ノ下"],
+
+        // ===== Kanto: Saitama =====
+        "Kawagoe" => vec!["川越"],
+        "Chichibu" => vec!["秩父"],
+
+        // ===== Kanto: Chiba =====
+        "Narita" => vec!["成田"],
+
+        // ===== Kanto: Ibaraki =====
+        "Mito" => vec!["水戸"],
+
+        // ===== Kanto: Tochigi =====
+        "Utsunomiya" => vec!["宇都宮"],
+        "Nikko" => vec!["日光"],
+
+        // ===== Kanto: Gunma =====
+        "Maebashi" => vec!["前橋"],
+        "Kusatsu" => vec!["草津"],
+
+        // ===== Chubu: Nagano =====
+        "Matsumoto" => vec!["松本"],
+        "Karuizawa" => vec!["軽井沢"],
+        "Hakuba" => vec!["白馬"],
+        "Nozawa" | "Nozawa Onsen" => vec!["野沢温泉"],
+        "Tsumago" => vec!["妻籠"],
+        "Suwa" => vec!["諏訪"],
+
+        // ===== Chubu: Yamanashi =====
+        "Kofu" => vec!["甲府"],
+        "Kawaguchiko" | "Fujikawaguchiko" => vec!["河口湖"],
+
+        // ===== Chubu: Niigata =====
+        "Sado" => vec!["佐渡"],
+
+        // ===== Chubu: Ishikawa =====
+        "Kanazawa" => vec!["金沢"],
+        "Wajima" => vec!["輪島"],
+
+        // ===== Chubu: Gifu =====
+        "Takayama" => vec!["高山"],
+        "Shirakawa" | "Shirakawa-go" => vec!["白川郷"],
+        "Gero" => vec!["下呂"],
+        "Magome" => vec!["馬籠"],
+        "Gujo" => vec!["郡上"],
+
+        // ===== Chubu: Shizuoka =====
+        "Atami" => vec!["熱海"],
+        "Ito" => vec!["伊東"],
+        "Numazu" => vec!["沼津"],
+        "Hamamatsu" => vec!["浜松"],
+        "Shimoda" => vec!["下田"],
+        "Izu" => vec!["伊豆"],
+        "Gotemba" => vec!["御殿場"],
+        "Fuji" => vec!["富士"],
+
+        // ===== Chubu: Aichi =====
+        "Nagoya" => vec!["名古屋"],
+        "Gamagori" => vec!["蒲郡"],
+        "Inuyama" => vec!["犬山"],
+
+        // ===== Chubu: Mie =====
+        "Tsu" => vec!["津"],
+        "Ise" => vec!["伊勢"],
+        "Toba" => vec!["鳥羽"],
+        "Kumano" => vec!["熊野"],
+
+        // ===== Kansai: Kyoto =====
+        "Arashiyama" => vec!["嵐山"],
+        "Fushimi" => vec!["伏見"],
+        "Uji" => vec!["宇治"],
         "Higashiyama" => vec!["東山"],
         "Nakagyo" => vec!["中京区"],
         "Shimogyo" => vec!["下京区"],
         "Kamigyo" => vec!["上京区"],
         "Sakyo" => vec!["左京区"],
         "Ukyo" => vec!["右京区"],
+        "Miyazu" => vec!["宮津"],
+        "Amanohashidate" => vec!["天橋立"],
 
-        // Osaka areas
+        // ===== Kansai: Osaka =====
+        "Namba" => vec!["難波"],
+        "Umeda" => vec!["梅田"],
         "Tennoji" => vec!["天王寺"],
         "Nakanoshima" => vec!["中之島"],
         "Naniwa" => vec!["浪速区"],
+        "Sakai" => vec!["堺"],
 
-        // Other notable places
-        "Aizuwakamatsu" => vec!["会津若松"],
-        "Towada" => vec!["十和田"],
-        "Hiraizumi" => vec!["平泉"],
-        "Miyanoshita" => vec!["宮ノ下"],
-        "Gamagori" => vec!["蒲郡"],
+        // ===== Kansai: Hyogo =====
+        "Kobe" => vec!["神戸"],
+        "Himeji" => vec!["姫路"],
         "Arimacho" | "Arima" => vec!["有馬"],
-        "Naoshima" => vec!["直島"],
         "Kinosaki" => vec!["城崎"],
         "Takeda" => vec!["竹田"],
-        "Tono" => vec!["遠野"],
-        "Kakunodate" => vec!["角館"],
-        "Gero" => vec!["下呂"],
-        "Tsumago" => vec!["妻籠"],
-        "Magome" => vec!["馬籠"],
-        "Wajima" => vec!["輪島"],
+
+        // ===== Kansai: Shiga =====
+        "Otsu" => vec!["大津"],
+
+        // ===== Kansai: Nara =====
+        "Yoshino" => vec!["吉野"],
+
+        // ===== Kansai: Wakayama =====
+        "Koyasan" | "Koya" => vec!["高野山"],
+        "Shirahama" => vec!["白浜"],
+
+        // ===== Chugoku =====
+        "Kurashiki" => vec!["倉敷"],
+        "Miyajima" => vec!["宮島"],
+        "Onomichi" => vec!["尾道"],
+        "Matsue" => vec!["松江"],
+        "Izumo" => vec!["出雲"],
+        "Tsuwano" => vec!["津和野"],
+        "Iwakuni" => vec!["岩国"],
+        "Shimonoseki" => vec!["下関"],
+
+        // ===== Shikoku =====
+        "Takamatsu" => vec!["高松"],
+        "Matsuyama" => vec!["松山"],
+        "Naruto" => vec!["鳴門"],
+        "Naoshima" => vec!["直島"],
+        "Kotohira" => vec!["琴平"],
+        "Shimanto" => vec!["四万十"],
+        "Uwajima" => vec!["宇和島"],
+
+        // ===== Kyushu =====
+        "Hakata" => vec!["博多"],
+        "Kitakyushu" => vec!["北九州"],
+        "Dazaifu" => vec!["太宰府"],
+        "Yanagawa" => vec!["柳川"],
+        "Sasebo" => vec!["佐世保"],
+        "Arita" => vec!["有田"],
+        "Aso" => vec!["阿蘇"],
+        "Beppu" => vec!["別府"],
+        "Yufuin" => vec!["湯布院"],
+        "Yufu" => vec!["由布"],
+        "Takachiho" => vec!["高千穂"],
+        "Ibusuki" => vec!["指宿"],
+        "Yakushima" => vec!["屋久島"],
+        "Tanegashima" => vec!["種子島"],
+        "Amami" => vec!["奄美"],
+
+        // ===== Okinawa =====
+        "Naha" => vec!["那覇"],
+        "Ishigaki" => vec!["石垣"],
+        "Miyako" => vec!["宮古"],
+        "Nago" => vec!["名護"],
+        "Chatan" => vec!["北谷"],
+        "Motobu" => vec!["本部"],
+        "Onna" => vec!["恩納"],
 
         _ => vec![],
     }
