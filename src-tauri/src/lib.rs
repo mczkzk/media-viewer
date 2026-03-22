@@ -1,4 +1,7 @@
+mod geo_dict;
+mod label_dict;
 mod scanner;
+mod tagger;
 mod thumbnail;
 mod video_server;
 
@@ -154,6 +157,34 @@ async fn clear_cache(app: tauri::AppHandle) -> Result<String, String> {
 
     let size_mb = total_bytes as f64 / (1024.0 * 1024.0);
     Ok(format!("{total_files}ファイル（{size_mb:.1}MB）を削除しました"))
+}
+
+#[tauri::command]
+async fn clear_tags(app: tauri::AppHandle) -> Result<(), String> {
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let tags_file = app_data_dir.join("cache").join("tags.json");
+    let _ = std::fs::remove_file(tags_file);
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_tags(app: tauri::AppHandle) -> Result<std::collections::HashMap<String, Vec<String>>, String> {
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(tagger::load_tags(&app_data_dir))
+}
+
+#[tauri::command]
+async fn tag_images(
+    app: tauri::AppHandle,
+    paths: Vec<String>,
+    base_path: String,
+) -> Result<usize, String> {
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        tagger::tag_images(&paths, &base_path, &app_data_dir)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 struct VideoServerPort(u16);
@@ -329,9 +360,14 @@ pub fn run() {
                 MenuItemBuilder::with_id("clear_cache", "キャッシュをクリア...")
                     .build(app)?;
 
+            let regenerate_tags_menu =
+                MenuItemBuilder::with_id("regenerate_tags", "タグを再生成...")
+                    .build(app)?;
+
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&change_folder)
                 .item(&clear_cache_menu)
+                .item(&regenerate_tags_menu)
                 .separator()
                 .close_window()
                 .build()?;
@@ -363,6 +399,9 @@ pub fn run() {
                     "clear_cache" => {
                         let _ = app_handle.emit("menu-clear-cache", ());
                     }
+                    "regenerate_tags" => {
+                        let _ = app_handle.emit("menu-regenerate-tags", ());
+                    }
                     _ => {}
                 }
             });
@@ -379,7 +418,10 @@ pub fn run() {
             batch_ensure_thumbnails,
             get_media_info,
             get_video_server_port,
-            clear_cache
+            clear_cache,
+            clear_tags,
+            get_tags,
+            tag_images
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -99,6 +99,17 @@ class TauriApp {
     });
   }
 
+  async getTags() {
+    return await window.__TAURI__.core.invoke('get_tags');
+  }
+
+  async tagImages(paths) {
+    return await window.__TAURI__.core.invoke('tag_images', {
+      paths,
+      basePath: this.mediaBasePath
+    });
+  }
+
   // Get full-size media URL via local HTTP server
   mediaUrl(relativePath) {
     const fullPath = this.mediaBasePath + '/' + relativePath;

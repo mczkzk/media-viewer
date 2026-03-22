@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Iron Rule
+
+**NEVER modify, edit, move, rename, or delete original media files.** The user's media folder is strictly read-only. All app data (tags, thumbnails, caches) goes to AppData only.
+
 ## Development Commands
 
 **Start dev (Tauri + hot reload):**
@@ -35,6 +39,7 @@ rm ~/Library/Application\ Support/com.mediaviewer.app/cache/index.json
 **Setup:**
 ```bash
 npm install
+npm run build:helpers   # Compile Swift helpers (first time or after .swift changes)
 ```
 
 ## Architecture Overview
@@ -70,6 +75,20 @@ npm install
 4. **Media Info (src-tauri/src/thumbnail.rs::get_media_info)**:
    - `kamadak-exif` for EXIF data (camera, lens, GPS, settings)
    - `ffprobe` for video metadata (duration, codec, fps)
+   - `get_gps()`: GPS extraction with HEIC fallback via `mdls`
+
+5. **Image Tagger (src-tauri/src/tagger.rs)**:
+   - `vision-tagger` Swift helper: image classification (`VNClassifyImageRequest`) + OCR (`VNRecognizeTextRequest`)
+   - `reverse-geocoder` Swift helper: persistent process, `MKReverseGeocodingRequest` (en_US locale)
+     - stdin/stdout communication, CLGeocoder cache enabled
+     - 2s interval between requests, 60s backoff on rate limit
+     - 50m proximity dedup (reuses result for nearby coordinates)
+   - Stores tags in `AppData/cache/tags.json` (not cleared by cache clear, regenerate via menu)
+   - Tags: Vision labels (EN+JA) + OCR text + GPS place names (EN + JA via geo_dict)
+   - `label_dict.rs`: ~750 entry Vision label EN-to-JA translation
+   - `geo_dict.rs`: 47 prefectures + 100+ cities/landmarks EN-to-JA translation
+   - Videos: thumbnails pre-generated before tagging, then classified
+   - Swift helpers compiled by `npm run build:helpers`, bundled in `Resources/helpers/`
 
 ### Tauri IPC Commands
 
@@ -85,6 +104,9 @@ npm install
 | `get_media_info` | `path`, `base_path` | `JSON` | EXIF/video metadata |
 | `get_video_server_port` | - | `u16` | Local HTTP server port |
 | `clear_cache` | - | `String` | Delete all caches (thumbnails + converted + scan) |
+| `get_tags` | - | `HashMap<String, Vec<String>>` | Get all image tags |
+| `tag_images` | `paths[]`, `base_path` | `usize` | Batch tag images (Vision + OCR + GPS) |
+| `clear_tags` | - | - | Delete tags.json for regeneration |
 
 ### Frontend Architecture (Vanilla JS)
 
@@ -117,6 +139,8 @@ npm install
   - `currentPath`: Array tracking folder depth in hierarchical mode
   - Year index: Auto-thins based on screen height, syncs with scroll
   - Folder extraction: Builds virtual folder tree from flat `path` field
+  - `tagMap`: image tags loaded from backend, searched via `_matchesQuery()`
+  - Search matches: path, event, filename, **tags** (EN+JA), all with kana conversion
 
 - **VirtualScroll (public/js/virtual-scroll.js)**:
   - Renders only visible rows to minimize DOM elements
@@ -172,3 +196,9 @@ npm install
 - **ffmpeg/ffprobe**: Bundled via npm (`ffmpeg-static`, `@ffprobe-installer/ffprobe`) for dev; also found via well-known paths (`/opt/homebrew/bin`, `/usr/local/bin`) in built app
 - **Rust** 1.77.2+
 - **Node.js** 18+ (for Tauri CLI and npm dependencies)
+
+## Documentation Rules
+
+- **After implementing a feature or making significant changes**, update `docs/SPEC.md` to reflect the current state. SPEC.md is the single source of truth for the application's full specification.
+- Keep SPEC.md in sync with the actual implementation. If you add a new IPC command, component, or feature, add it to SPEC.md.
+- Do NOT update SPEC.md for trivial bug fixes or refactors that don't change behavior.

@@ -478,6 +478,56 @@ pub fn get_media_info(full_path: &Path) -> Result<serde_json::Value, String> {
     Ok(info)
 }
 
+/// Extract GPS coordinates (lat, lon) from an image file's EXIF data.
+pub fn get_gps(file_path: &Path) -> Option<(f64, f64)> {
+    // For HEIC, always use mdls (kamadak-exif is unreliable for HEIC GPS)
+    if is_heic(file_path) {
+        return get_gps_via_mdls(file_path);
+    }
+
+    // For JPEG/TIFF, use kamadak-exif
+    if let Ok(file) = std::fs::File::open(file_path) {
+        let mut reader = BufReader::new(file);
+        if let Ok(exif_data) = exif::Reader::new().read_from_container(&mut reader) {
+            let lat = get_gps_coord(&exif_data, exif::Tag::GPSLatitude, exif::Tag::GPSLatitudeRef);
+            let lon = get_gps_coord(&exif_data, exif::Tag::GPSLongitude, exif::Tag::GPSLongitudeRef);
+            if let (Some(lat), Some(lon)) = (lat, lon) {
+                return Some((lat, lon));
+            }
+        }
+    }
+
+    // Fallback: try mdls for any file type
+    get_gps_via_mdls(file_path)
+}
+
+/// Extract GPS from HEIC using macOS sips command
+fn get_gps_via_mdls(file_path: &Path) -> Option<(f64, f64)> {
+    let output = Command::new("mdls")
+        .args(["-name", "kMDItemLatitude", "-name", "kMDItemLongitude"])
+        .arg(file_path)
+        .output()
+        .ok()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut lat: Option<f64> = None;
+    let mut lon: Option<f64> = None;
+
+    for line in stdout.lines() {
+        if line.contains("kMDItemLatitude") && !line.contains("null") {
+            lat = line.split('=').nth(1).and_then(|v| v.trim().parse().ok());
+        }
+        if line.contains("kMDItemLongitude") && !line.contains("null") {
+            lon = line.split('=').nth(1).and_then(|v| v.trim().parse().ok());
+        }
+    }
+
+    match (lat, lon) {
+        (Some(la), Some(lo)) => Some((la, lo)),
+        _ => None,
+    }
+}
+
 /// Extract GPS coordinate from EXIF
 fn get_gps_coord(exif_data: &exif::Exif, coord_tag: exif::Tag, ref_tag: exif::Tag) -> Option<f64> {
     let field = exif_data.get_field(coord_tag, exif::In::PRIMARY)?;

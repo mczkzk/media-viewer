@@ -138,14 +138,14 @@ class Lightbox {
         if (!response.ok) throw new Error('Failed to load info');
         info = await response.json();
       }
-      this.displayMediaInfo(info);
+      this.displayMediaInfo(info, item.path);
     } catch (error) {
       console.error('Error loading media info:', error);
       this.infoPanelContent.innerHTML = '<div class="error">情報の読み込みに失敗しました</div>';
     }
   }
 
-  displayMediaInfo(info) {
+  displayMediaInfo(info, itemPath) {
     let html = '<div class="info-section">';
 
     html += this._infoItem('📄', info.filename, this.formatFileSize(info.size));
@@ -195,6 +195,16 @@ class Lightbox {
           src="https://maps.google.com/maps?q=${lat},${lng}&z=14&output=embed"
           allowfullscreen></iframe>
       </div>`;
+    }
+
+    // Tags
+    const tags = this.gallery.tagMap && this.gallery.tagMap[itemPath];
+    if (tags && tags.length > 0) {
+      html += '<div class="info-tags">';
+      tags.forEach(tag => {
+        html += `<span class="info-tag">${tag}</span>`;
+      });
+      html += '</div>';
     }
 
     html += '</div>';

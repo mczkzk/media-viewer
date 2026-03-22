@@ -15,7 +15,7 @@
         <select id="year-filter" class="filter-select">
           <option value="">すべての年</option>
         </select>
-        <input type="text" id="search-input" class="search-input" placeholder="イベント名で検索...">
+        <input type="search" id="search-input" class="search-input" placeholder="検索...">
         <select id="sort-order" class="filter-select">
           <option value="desc">新しい順</option>
           <option value="asc">古い順</option>
@@ -86,7 +86,7 @@
       if (tauriApp.isTauri && !tauriApp.mediaBasePath) {
         document.getElementById('gallery').innerHTML =
           '<div class="error-message">メディアフォルダが選択されていません。<br>File メニューからフォルダを選択してください。</div>';
-        if (window.__TAURI__) {
+        if (tauriApp.isTauri) {
           window.__TAURI__.event.listen('menu-change-folder', async () => {
             const changed = await tauriApp.changeFolder();
             if (changed) location.reload();
@@ -101,6 +101,12 @@
 
         // Load media data
         await gallery.load();
+
+        // Load tags and start background tagging
+        if (tauriApp.isTauri) {
+          gallery.tagMap = await tauriApp.getTags();
+          gallery.preConvertSearchFields();
+        }
 
         // Create lightbox instance
         const lightbox = new Lightbox(gallery);
@@ -189,7 +195,7 @@
         });
 
         // Menu: change folder handler
-        if (window.__TAURI__) {
+        if (tauriApp.isTauri) {
           window.__TAURI__.event.listen('menu-change-folder', async () => {
             const changed = await tauriApp.changeFolder();
             if (changed) {
@@ -208,7 +214,7 @@
         }
 
         // Menu: clear cache handler
-        if (window.__TAURI__) {
+        if (tauriApp.isTauri) {
           window.__TAURI__.event.listen('menu-clear-cache', async () => {
             if (!confirm('サムネイルとスキャンキャッシュをすべて削除しますか？')) return;
             try {
@@ -220,6 +226,17 @@
             } catch (e) {
               alert('キャッシュクリアに失敗しました: ' + e);
             }
+          });
+        }
+
+        // Menu: regenerate tags handler
+        if (tauriApp.isTauri) {
+          window.__TAURI__.event.listen('menu-regenerate-tags', async () => {
+            if (!confirm('タグを全て削除して再生成しますか？\n（時間がかかります）')) return;
+            await window.__TAURI__.core.invoke('clear_tags');
+            gallery.tagMap = {};
+            gallery.preConvertSearchFields();
+            location.reload();
           });
         }
 
@@ -249,6 +266,54 @@
             statsText.parentElement.style.minWidth = '';
           }
         });
+
+        // Background tagging (non-blocking, updates search incrementally)
+        if (tauriApp.isTauri) {
+          const BATCH_SIZE = 20;
+          const REFRESH_INTERVAL = 100; // refresh search fields every N items
+          const untagged = gallery.mediaItems.filter(i => !gallery.tagMap[i.path]);
+
+          // Pre-generate video thumbnails so they can be tagged
+          const untaggedVideos = untagged.filter(i => i.type === 'video');
+          if (untaggedVideos.length > 0) {
+            const videoPaths = untaggedVideos.map(i => i.path);
+            for (let i = 0; i < videoPaths.length; i += BATCH_SIZE) {
+              await tauriApp.batchEnsureThumbnails(videoPaths.slice(i, i + BATCH_SIZE));
+            }
+          }
+
+          if (untagged.length > 0) {
+            let tagged = 0;
+            const total = untagged.length;
+            const savedStats = statsText.textContent;
+
+            for (let i = 0; i < untagged.length; i += BATCH_SIZE) {
+              const batch = untagged.slice(i, i + BATCH_SIZE);
+              const paths = batch.map(item => item.path);
+              try {
+                const count = await tauriApp.tagImages(paths);
+                tagged += count;
+                statsText.textContent = `タグ付け中... ${tagged}/${total}`;
+
+                // Periodically refresh search fields so new tags are searchable
+                if (tagged % REFRESH_INTERVAL < BATCH_SIZE) {
+                  gallery.tagMap = await tauriApp.getTags();
+                  gallery.preConvertSearchFields();
+                  if (gallery.searchQuery) {
+                    gallery.applyFilters();
+                  }
+                }
+              } catch (e) {
+                console.error('Tagging batch failed:', e);
+              }
+            }
+
+            // Final refresh
+            gallery.tagMap = await tauriApp.getTags();
+            gallery.preConvertSearchFields();
+            statsText.textContent = savedStats;
+          }
+        }
 
       } catch (error) {
         console.error('Failed to initialize app:', error);

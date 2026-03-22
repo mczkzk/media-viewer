@@ -9,6 +9,7 @@ class Gallery {
     this.sortOrder = 'desc';
     this.displayMode = 'flat'; // 'flat' or 'hierarchical'
     this.currentPath = [];
+    this.tagMap = {};  // { relativePath: ["tag1", "tag2"] }
   }
 
   async load({ force = false } = {}) {
@@ -36,24 +37,34 @@ class Gallery {
     }
   }
 
-  // Pre-convert searchable fields to romaji/hiragana/katakana for O(1) lookup during search
   preConvertSearchFields() {
     if (!window.KanaConverter) return;
 
     const converter = window.KanaConverter;
 
     this.mediaItems.forEach(item => {
-      item._pathRomaji = converter.toRomaji(item.path).toLowerCase();
-      item._pathHiragana = converter.toHiragana(item.path);
-      item._pathKatakana = converter.toKatakana(item.path);
+      if (!item._pathRomaji) {
+        item._pathRomaji = converter.toRomaji(item.path).toLowerCase();
+        item._pathHiragana = converter.toHiragana(item.path);
+        item._pathKatakana = converter.toKatakana(item.path);
 
-      item._eventRomaji = converter.toRomaji(item.event).toLowerCase();
-      item._eventHiragana = converter.toHiragana(item.event);
-      item._eventKatakana = converter.toKatakana(item.event);
+        item._eventRomaji = converter.toRomaji(item.event).toLowerCase();
+        item._eventHiragana = converter.toHiragana(item.event);
+        item._eventKatakana = converter.toKatakana(item.event);
 
-      item._filenameRomaji = converter.toRomaji(item.filename).toLowerCase();
-      item._filenameHiragana = converter.toHiragana(item.filename);
-      item._filenameKatakana = converter.toKatakana(item.filename);
+        item._filenameRomaji = converter.toRomaji(item.filename).toLowerCase();
+        item._filenameHiragana = converter.toHiragana(item.filename);
+        item._filenameKatakana = converter.toKatakana(item.filename);
+      }
+
+      const tags = this.tagMap[item.path];
+      if (tags && tags.length > 0) {
+        const joined = tags.join(' ');
+        item._tagsLower = joined.toLowerCase();
+        item._tagsRomaji = converter.toRomaji(joined).toLowerCase();
+        item._tagsHiragana = converter.toHiragana(joined);
+        item._tagsKatakana = converter.toKatakana(joined);
+      }
     });
   }
 
@@ -307,27 +318,22 @@ class Gallery {
 
   // Search across original text, romaji, hiragana, and katakana using pre-converted fields
   _matchesQuery(q, item) {
-    // Direct match
-    if (item.event.toLowerCase().includes(q.queryLower)) return true;
-    if (item.filename.toLowerCase().includes(q.queryLower)) return true;
-    if (item.path.toLowerCase().includes(q.queryLower)) return true;
+    const fieldGroups = [
+      ['path', '_pathRomaji', '_pathHiragana', '_pathKatakana'],
+      ['event', '_eventRomaji', '_eventHiragana', '_eventKatakana'],
+      ['filename', '_filenameRomaji', '_filenameHiragana', '_filenameKatakana'],
+      [null, '_tagsRomaji', '_tagsHiragana', '_tagsKatakana'],
+    ];
 
-    if (!q.queryRomaji) return false;
-
-    // Romaji
-    if (item._pathRomaji && item._pathRomaji.includes(q.queryRomaji)) return true;
-    if (item._eventRomaji && item._eventRomaji.includes(q.queryRomaji)) return true;
-    if (item._filenameRomaji && item._filenameRomaji.includes(q.queryRomaji)) return true;
-
-    // Hiragana
-    if (item._pathHiragana && item._pathHiragana.includes(q.queryHiragana)) return true;
-    if (item._eventHiragana && item._eventHiragana.includes(q.queryHiragana)) return true;
-    if (item._filenameHiragana && item._filenameHiragana.includes(q.queryHiragana)) return true;
-
-    // Katakana
-    if (item._pathKatakana && item._pathKatakana.includes(q.queryKatakana)) return true;
-    if (item._eventKatakana && item._eventKatakana.includes(q.queryKatakana)) return true;
-    if (item._filenameKatakana && item._filenameKatakana.includes(q.queryKatakana)) return true;
+    for (const [raw, romaji, hiragana, katakana] of fieldGroups) {
+      if (raw && item[raw].toLowerCase().includes(q.queryLower)) return true;
+      if (!raw && item._tagsLower && item._tagsLower.includes(q.queryLower)) return true;
+      if (q.queryRomaji) {
+        if (item[romaji] && item[romaji].includes(q.queryRomaji)) return true;
+        if (item[hiragana] && item[hiragana].includes(q.queryHiragana)) return true;
+        if (item[katakana] && item[katakana].includes(q.queryKatakana)) return true;
+      }
+    }
 
     return false;
   }
