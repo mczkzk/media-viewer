@@ -50,9 +50,13 @@ class Lightbox {
   }
 
   show(index) {
+    // Build navigable indices from current view
+    this.navIndices = this.gallery.getNavigableIndices();
+    this.currentNavPos = this.navIndices.indexOf(index);
+    if (this.currentNavPos === -1) this.currentNavPos = 0;
     this.currentIndex = index;
-    const item = this.gallery.getItem(index);
 
+    const item = this.gallery.getItem(index);
     if (!item) return;
 
     this.content.innerHTML = '';
@@ -73,7 +77,11 @@ class Lightbox {
     }
 
     this.info.querySelector('.lightbox-filename').textContent = item.filename;
-    this.info.querySelector('.lightbox-counter').textContent = `${index + 1} / ${this.gallery.filteredItems.length}`;
+    this.info.querySelector('.lightbox-counter').textContent = `${this.currentNavPos + 1} / ${this.navIndices.length}`;
+
+    // Show/hide prev/next buttons
+    this.prevBtn.style.display = this.currentNavPos > 0 ? '' : 'none';
+    this.nextBtn.style.display = this.currentNavPos < this.navIndices.length - 1 ? '' : 'none';
 
     this.modal.classList.add('active');
 
@@ -94,14 +102,14 @@ class Lightbox {
   }
 
   prev() {
-    if (this.currentIndex > 0) {
-      this.show(this.currentIndex - 1);
+    if (this.currentNavPos > 0) {
+      this.show(this.navIndices[this.currentNavPos - 1]);
     }
   }
 
   next() {
-    if (this.currentIndex < this.gallery.filteredItems.length - 1) {
-      this.show(this.currentIndex + 1);
+    if (this.currentNavPos < this.navIndices.length - 1) {
+      this.show(this.navIndices[this.currentNavPos + 1]);
     }
   }
 

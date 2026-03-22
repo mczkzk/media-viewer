@@ -379,6 +379,22 @@ class Gallery {
     return this.filteredItems[index];
   }
 
+  // Returns filteredItems indices navigable from current view
+  getNavigableIndices() {
+    if (this.displayMode === 'flat') {
+      return this.filteredItems.map((_, i) => i);
+    }
+    // Hierarchical: only files at current folder depth
+    const indices = [];
+    const depth = this.currentPath.length;
+    this.filteredItems.forEach((item, i) => {
+      const parts = item.path.split('/');
+      if (depth > 0 && !this.currentPath.every((p, j) => parts[j] === p)) return;
+      if (parts.length === depth + 1) indices.push(i);
+    });
+    return indices;
+  }
+
   buildCurrentViewItems() {
     const folders = new Map();
     const files = [];
