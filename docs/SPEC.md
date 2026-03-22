@@ -81,7 +81,7 @@ Tauri WebView (Frontend) → IPC/HTTP → Rust Backend → Local Files
 - 動画: キャッシュ済みサムネイルを分類に使用 (サムネ先行生成)
 
 #### label_dict.rs - Visionラベル翻訳辞書
-- Vision Framework ラベル → 日本語翻訳 (~500エントリ)
+- Vision Framework ラベル → 日本語翻訳 (~750エントリ)
 - 英語と日本語の両方をタグに保存
 
 #### geo_dict.rs - 地名翻訳辞書

@@ -168,15 +168,15 @@ impl GeocoderProcess {
         let error = parsed.get("error").cloned().unwrap_or_default();
         let location = parsed.get("location").cloned().unwrap_or_default();
 
-        self.last_lat = lat;
-        self.last_lon = lon;
-
         if error == "rate_limit" {
             eprintln!("Geocoder: rate limited, waiting 60s");
             std::thread::sleep(std::time::Duration::from_secs(60));
-            self.last_result = String::new();
+            // Don't update last_lat/last_lon so nearby coords can retry
             return None;
         }
+
+        self.last_lat = lat;
+        self.last_lon = lon;
 
         if location.is_empty() {
             self.last_result = String::new();

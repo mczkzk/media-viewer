@@ -180,7 +180,11 @@ async fn tag_images(
     base_path: String,
 ) -> Result<usize, String> {
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    tagger::tag_images(&paths, &base_path, &app_data_dir)
+    tauri::async_runtime::spawn_blocking(move || {
+        tagger::tag_images(&paths, &base_path, &app_data_dir)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 struct VideoServerPort(u16);

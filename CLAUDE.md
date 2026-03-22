@@ -85,7 +85,7 @@ npm run build:helpers   # Compile Swift helpers (first time or after .swift chan
      - 50m proximity dedup (reuses result for nearby coordinates)
    - Stores tags in `AppData/cache/tags.json` (not cleared by cache clear, regenerate via menu)
    - Tags: Vision labels (EN+JA) + OCR text + GPS place names (EN + JA via geo_dict)
-   - `label_dict.rs`: ~500 entry Vision label EN-to-JA translation
+   - `label_dict.rs`: ~750 entry Vision label EN-to-JA translation
    - `geo_dict.rs`: 47 prefectures + 100+ cities/landmarks EN-to-JA translation
    - Videos: thumbnails pre-generated before tagging, then classified
    - Swift helpers compiled by `npm run build:helpers`, bundled in `Resources/helpers/`
