@@ -160,6 +160,17 @@ async fn clear_cache(app: tauri::AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
+async fn show_in_finder(path: String, base_path: String) -> Result<(), String> {
+    let full_path = PathBuf::from(&base_path).join(&path);
+    std::process::Command::new("open")
+        .arg("-R")
+        .arg(&full_path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 async fn clear_tags(app: tauri::AppHandle) -> Result<(), String> {
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let tags_file = app_data_dir.join("cache").join("tags.json");
@@ -421,7 +432,8 @@ pub fn run() {
             clear_cache,
             clear_tags,
             get_tags,
-            tag_images
+            tag_images,
+            show_in_finder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

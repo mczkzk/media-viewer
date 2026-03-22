@@ -145,19 +145,38 @@ class Lightbox {
     }
   }
 
+  // SVG icons (20x20, stroke-based)
+  static ICONS = {
+    file: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    dimension: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M3 9h18"/></svg>',
+    calendar: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    camera: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+    lens: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>',
+    clock: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    location: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    duration: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>',
+    codec: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg>',
+    finder: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
+  };
+
   displayMediaInfo(info, itemPath) {
+    const I = Lightbox.ICONS;
     let html = '<div class="info-section">';
 
-    html += this._infoItem('📄', info.filename, this.formatFileSize(info.size));
+    const hasFinder = this.gallery.tauriApp && this.gallery.tauriApp.isTauri && this.gallery.tauriApp.mediaBasePath;
+    const finderBtn = hasFinder
+      ? ` <a class="info-finder-link" href="#" data-path="${this._escapeAttr(itemPath)}" title="Finderで表示">${I.finder}</a>`
+      : '';
+    html += this._infoItem(I.file, info.filename + finderBtn, this.formatFileSize(info.size));
 
     if (info.width && info.height) {
-      html += this._infoItem('📏', `${info.width} × ${info.height}`,
+      html += this._infoItem(I.dimension, `${info.width} × ${info.height}`,
         info.megapixels ? `${info.megapixels}MP` : '');
     }
 
     if (info.exif) {
       if (info.exif.dateTime) {
-        html += this._infoItem('📅', this.formatDateTime(info.exif.dateTime));
+        html += this._infoItem(I.calendar, this.formatDateTime(info.exif.dateTime));
       }
 
       if (info.exif.make || info.exif.model) {
@@ -167,29 +186,29 @@ class Lightbox {
         if (info.exif.exposureTime) settings.push(`1/${Math.round(1/info.exif.exposureTime)}s`);
         if (info.exif.focalLength) settings.push(`${info.exif.focalLength}mm`);
         if (info.exif.iso) settings.push(`ISO${info.exif.iso}`);
-        html += this._infoItem('📷', camera, settings.join(' '));
+        html += this._infoItem(I.camera, camera, settings.join(' '));
       }
 
       if (info.exif.lens) {
-        html += this._infoItem('🔍', info.exif.lens);
+        html += this._infoItem(I.lens, info.exif.lens);
       }
     }
 
     if (info.type === 'video') {
       if (info.duration) {
-        html += this._infoItem('⏱', '再生時間', this.formatDuration(info.duration));
+        html += this._infoItem(I.duration, '再生時間', this.formatDuration(info.duration));
       }
       if (info.codec) {
-        html += this._infoItem('🎬', info.codec.toUpperCase(),
+        html += this._infoItem(I.codec, info.codec.toUpperCase(),
           info.fps ? `${info.fps.toFixed(0)} fps` : '');
       }
     }
 
-    html += this._infoItem('🕐', '更新日時', this.formatDateTime(info.modified));
+    html += this._infoItem(I.clock, '更新日時', this.formatDateTime(info.modified));
 
     if (info.exif && info.exif.gps) {
       const { latitude: lat, longitude: lng } = info.exif.gps;
-      html += this._infoItem('📍', '位置情報', `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      html += this._infoItem(I.location, '位置情報', `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
       html += `<div class="info-map">
         <iframe width="100%" height="200" frameborder="0" style="border:0"
           src="https://maps.google.com/maps?q=${lat},${lng}&z=14&output=embed"
@@ -209,6 +228,17 @@ class Lightbox {
 
     html += '</div>';
     this.infoPanelContent.innerHTML = html;
+
+    // Bind Finder link click
+    const finderLink = this.infoPanelContent.querySelector('.info-finder-link');
+    if (finderLink) {
+      finderLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        const path = finderLink.dataset.path;
+        const basePath = this.gallery.tauriApp.mediaBasePath;
+        window.__TAURI__.core.invoke('show_in_finder', { path, basePath });
+      });
+    }
   }
 
   _infoItem(icon, label, value) {
@@ -233,6 +263,16 @@ class Lightbox {
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit'
     });
+  }
+
+  _escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  _escapeAttr(str) {
+    return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   formatDuration(seconds) {

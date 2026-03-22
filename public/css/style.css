@@ -515,10 +515,17 @@ body {
 }
 
 .info-icon {
-  font-size: 20px;
   width: 28px;
   flex-shrink: 0;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+}
+
+.info-icon svg {
+  display: block;
 }
 
 .info-details {
@@ -545,6 +552,19 @@ body {
   padding: 40px 20px;
   color: #666;
   font-size: 14px;
+}
+
+.info-finder-link {
+  color: #888;
+  cursor: pointer;
+  vertical-align: middle;
+  margin-left: 4px;
+  display: inline-flex;
+  transition: color 0.15s;
+}
+
+.info-finder-link:hover {
+  color: #007aff;
 }
 
 .info-map {
