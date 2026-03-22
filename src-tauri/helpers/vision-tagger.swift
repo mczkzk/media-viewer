@@ -36,9 +36,9 @@ for path in paths {
         continue
     }
 
-    // Classification labels
+    // Per-class adaptive threshold via PR curve + confidence floor to reject noise
     let labels = (classifyRequest.results ?? [])
-        .filter { $0.confidence >= 0.4 }
+        .filter { $0.hasMinimumRecall(0.3, forPrecision: 0.5) && $0.confidence >= 0.1 }
         .map { $0.identifier }
 
     // OCR text: deduplicate, filter short strings, limit count
