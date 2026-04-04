@@ -1,4 +1,8 @@
-# Media Viewer
+<p align="center">
+  <img src="src-tauri/icons/icon.png" alt="Media Viewer" width="128">
+</p>
+
+<h1 align="center">Media Viewer</h1>
 
 macOS向けのローカルメディアビューワー。年/イベントで整理された写真・動画をサムネイルグリッドで閲覧、AI画像認識とGPS地名で検索できる。
 
