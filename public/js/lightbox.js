@@ -84,6 +84,7 @@ class Lightbox {
     this.nextBtn.style.display = this.currentNavPos < this.navIndices.length - 1 ? '' : 'none';
 
     this.modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 
     if (this.infoPanelOpen) {
       this.openInfoPanel();
@@ -94,6 +95,7 @@ class Lightbox {
     this.modal.classList.remove('active');
     this.infoPanel.classList.remove('active');
     this.modal.classList.remove('info-open');
+    document.body.style.overflow = '';
 
     const video = this.content.querySelector('video');
     if (video) {
