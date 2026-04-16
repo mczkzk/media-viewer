@@ -35,8 +35,7 @@ fn get_media_type(ext: &str) -> Option<&'static str> {
 fn get_birthtime_ms(path: &Path) -> u64 {
     fs::metadata(path)
         .ok()
-        .and_then(|m| m.created().ok())
-        .or_else(|| fs::metadata(path).ok().and_then(|m| m.modified().ok()))
+        .and_then(|m| m.created().ok().or_else(|| m.modified().ok()))
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
@@ -94,6 +93,9 @@ fn parse_exif_datetime(s: &str) -> Option<u64> {
     }
 
     let days = days_from_ymd(year, month, day);
+    if days < 0 {
+        return None;
+    }
     let secs = days as u64 * 86400 + hour * 3600 + min * 60 + sec;
     Some(secs * 1000)
 }

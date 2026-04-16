@@ -342,7 +342,6 @@ class Gallery {
     const dir = this.sortOrder === 'desc' ? -1 : 1;
     const yearCmp = a.year.localeCompare(b.year) * dir;
     if (yearCmp !== 0) return yearCmp;
-    // Within the same year, sort by mtime descending (newest first)
     const mtimeA = a.mtime || 0;
     const mtimeB = b.mtime || 0;
     return mtimeB - mtimeA;
