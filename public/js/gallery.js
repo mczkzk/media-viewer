@@ -340,9 +340,12 @@ class Gallery {
 
   _compareItems(a, b) {
     const dir = this.sortOrder === 'desc' ? -1 : 1;
-    return (a.year.localeCompare(b.year) * dir)
-      || (a.event.localeCompare(b.event) * dir)
-      || (a.path.localeCompare(b.path) * dir);
+    const yearCmp = a.year.localeCompare(b.year) * dir;
+    if (yearCmp !== 0) return yearCmp;
+    // Within the same year, sort by mtime descending (newest first)
+    const mtimeA = a.mtime || 0;
+    const mtimeB = b.mtime || 0;
+    return mtimeB - mtimeA;
   }
 
   sortItems() {

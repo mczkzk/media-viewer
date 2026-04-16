@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 use walkdir::WalkDir;
@@ -39,6 +40,62 @@ fn get_birthtime_ms(path: &Path) -> u64 {
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+/// Try to read EXIF DateTimeOriginal, falling back to filesystem birthtime.
+/// EXIF format: "2026-04-16 12:08:00" or "2026:04:16 12:08:00"
+fn get_media_time_ms(path: &Path) -> u64 {
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        let lower = ext.to_lowercase();
+        if IMAGE_EXTENSIONS.contains(&lower.as_str()) {
+            if let Ok(file) = fs::File::open(path) {
+                let mut reader = BufReader::new(file);
+                if let Ok(exif_data) = exif::Reader::new().read_from_container(&mut reader) {
+                    // Prefer DateTimeOriginal, fall back to DateTime
+                    let field = exif_data
+                        .get_field(exif::Tag::DateTimeOriginal, exif::In::PRIMARY)
+                        .or_else(|| exif_data.get_field(exif::Tag::DateTime, exif::In::PRIMARY));
+                    if let Some(f) = field {
+                        if let Some(ms) = parse_exif_datetime(&f.display_value().to_string()) {
+                            return ms;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    get_birthtime_ms(path)
+}
+
+/// Parse EXIF datetime string like "2026-04-16 12:08:00" to milliseconds since epoch
+fn parse_exif_datetime(s: &str) -> Option<u64> {
+    // EXIF format: "YYYY-MM-DD HH:MM:SS" or "YYYY:MM:DD HH:MM:SS"
+    let s = s.replace(':', "-");
+    // Now: "YYYY-MM-DD HH-MM-SS"
+    let parts: Vec<&str> = s.split_whitespace().collect();
+    if parts.len() != 2 {
+        return None;
+    }
+    let date_parts: Vec<u32> = parts[0].split('-').filter_map(|p| p.parse().ok()).collect();
+    let time_parts: Vec<u32> = parts[1].split('-').filter_map(|p| p.parse().ok()).collect();
+    if date_parts.len() != 3 || time_parts.len() != 3 {
+        return None;
+    }
+    let (year, month, day) = (date_parts[0] as i64, date_parts[1] as u32, date_parts[2] as u32);
+    let (hour, min, sec) = (time_parts[0] as u64, time_parts[1] as u64, time_parts[2] as u64);
+
+    // Simple days-since-epoch calculation (no timezone, matches local EXIF convention)
+    fn days_from_ymd(y: i64, m: u32, d: u32) -> i64 {
+        let m = m as i64;
+        let d = d as i64;
+        let y = if m <= 2 { y - 1 } else { y };
+        let m = if m <= 2 { m + 9 } else { m - 3 };
+        365 * y + y / 4 - y / 100 + y / 400 + (m * 306 + 5) / 10 + d - 719469
+    }
+
+    let days = days_from_ymd(year, month, day);
+    let secs = days as u64 * 86400 + hour * 3600 + min * 60 + sec;
+    Some(secs * 1000)
 }
 
 /// Scan a YEAR/EVENT structured media directory
@@ -92,7 +149,7 @@ pub fn scan_directory(base_path: &str) -> Result<Vec<MediaItem>, String> {
                             event: year_name.clone(),
                             filename: event_name,
                             media_type: media_type.to_string(),
-                            mtime: get_birthtime_ms(&event_path),
+                            mtime: get_media_time_ms(&event_path),
                         });
                     }
                 }
@@ -140,7 +197,7 @@ pub fn scan_directory(base_path: &str) -> Result<Vec<MediaItem>, String> {
                     event: event_name.clone(),
                     filename: file_name,
                     media_type: media_type.to_string(),
-                    mtime: get_birthtime_ms(path),
+                    mtime: get_media_time_ms(path),
                 });
             }
         }
