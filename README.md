@@ -4,107 +4,107 @@
 
 <h1 align="center">Media Viewer</h1>
 
-macOS向けのローカルメディアビューワー。年/イベントで整理された写真・動画をサムネイルグリッドで閲覧、AI画像認識とGPS地名で検索できる。
+A local media viewer for macOS. Browse photos and videos organized by year/event in a thumbnail grid, with AI image recognition and GPS place name search.
 
-## 主な特徴
+## Features
 
-- **AI検索** - 「食べ物」「海」「犬」などの内容、画像内の文字(OCR)、GPS地名(京都、Tokyo)で検索
-- **高速表示** - 仮想スクロールで大量の写真を快適に閲覧
-- **HEIC対応** - iPhone写真をそのまま表示
-- **動画再生** - MP4/MOV/AVI/M4V/MKVをストリーミング再生
-- **オフライン完結** - API不要、全てローカル処理
+- **AI Search** - Search by content ("food", "beach", "dog"), in-image text (OCR), and GPS place names (Kyoto, Tokyo)
+- **Fast Browsing** - Virtual scrolling for smooth viewing of large photo libraries
+- **HEIC Support** - View iPhone photos natively
+- **Video Playback** - Streaming playback for MP4/MOV/AVI/M4V/MKV
+- **Fully Offline** - No API needed, everything runs locally
 
-## セットアップ
+## Setup
 
-**必要なもの**: macOS, Xcode, Rust 1.77+, Node.js 18+
+**Requirements**: macOS, Xcode, Rust 1.77+, Node.js 18+
 
 ```bash
 npm install
-npm run build:helpers   # Swiftヘルパーをコンパイル (初回のみ)
+npm run build:helpers   # Compile Swift helpers (first time only)
 ```
 
-## 使い方
+## Usage
 
-### 起動
+### Launch
 
 ```bash
-npm run tauri:dev        # 開発モード
-npm run install-app      # ビルド + /Applications にインストール
+npm run tauri:dev        # Development mode
+npm run install-app      # Build + install to /Applications
 ```
 
-### 初回
+### First Run
 
-File > フォルダを変更 (Cmd+O) でメディアフォルダを選択。以降は自動で記憶。
+Select your media folder via File > Change Folder (Cmd+O). The path is remembered automatically.
 
-### フォルダ構成
+### Folder Structure
 
 ```
 /your-media-path/
 ├── 2023/
-│   └── 2023-01-旅行/
+│   └── 2023-01-trip/
 │       ├── photo.jpg
 │       └── video.mp4
 ├── 2024/
 │   └── 2024-06-vacation/
-│       └── subfolder/      # ネストOK
+│       └── subfolder/      # Nesting OK
 │           └── photo.heic
 └── ...
 ```
 
-第1階層 = 年、第2階層 = イベント。それ以深も再帰スキャン。
+First level = year, second level = event. Deeper levels are scanned recursively.
 
-### 操作
+### Controls
 
-| 操作 | 動作 |
-|------|------|
-| 検索ボックス | タグ、地名、ファイル名で検索 (日英+ローマ字対応) |
-| 年フィルタ | 年で絞り込み (Finder風フォルダ表示に切替) |
-| クリック | ライトボックスで拡大表示/動画再生 |
-| 矢印キー | ライトボックス内ナビゲーション |
-| Esc | ライトボックスを閉じる |
-| (i) ボタン | EXIF、GPS地図、タグを表示 |
-| 年インデックス (右端) | 年をクリックでジャンプ |
+| Action | Behavior |
+|--------|----------|
+| Search box | Search by tags, place names, filenames (Japanese, English, and romaji) |
+| Year filter | Filter by year (switches to Finder-like folder view) |
+| Click | Open in lightbox for full-size view / video playback |
+| Arrow keys | Navigate within lightbox |
+| Esc | Close lightbox |
+| (i) button | Show EXIF data, GPS map, and tags |
+| Year index (right edge) | Click a year to jump |
 
-### メニュー
+### Menu
 
-| メニュー | 動作 |
-|---------|------|
-| File > フォルダを変更 (Cmd+O) | メディアフォルダ切り替え |
-| File > キャッシュをクリア | サムネイル、変換キャッシュ、スキャン結果を削除 |
-| File > タグを再生成 | 画像タグを全削除して再解析 |
+| Menu | Action |
+|------|--------|
+| File > Change Folder (Cmd+O) | Switch media folder |
+| File > Clear Cache | Delete thumbnails, conversion cache, and scan results |
+| File > Regenerate Tags | Delete all image tags and re-analyze |
 
-### 検索の仕組み
+### How Search Works
 
-初回起動時にバックグラウンドで全画像を解析:
-- **macOS Vision Framework** で画像内容を分類 (食べ物、建物、動物 等)
-- **OCR** で画像内の文字を読み取り (看板、メニュー 等)
-- **GPS逆ジオコーディング** で撮影地名を取得 (英語 + 日本の都道府県/主要都市は日本語も)
+On first launch, all images are analyzed in the background:
+- **macOS Vision Framework** classifies image content (food, buildings, animals, etc.)
+- **OCR** extracts text from images (signs, menus, etc.)
+- **GPS Reverse Geocoding** resolves location names (English + Japanese for prefectures/major cities)
 
-タグは永続キャッシュされ、2回目以降は新規追加分のみ処理。
+Tags are cached persistently. Subsequent launches only process newly added files.
 
-## 対応フォーマット
+## Supported Formats
 
-**画像**: JPG, PNG, GIF, HEIC/HEIF
-**動画**: MP4, MOV, AVI, M4V, MKV
+**Images**: JPG, PNG, GIF, HEIC/HEIF
+**Video**: MP4, MOV, AVI, M4V, MKV
 
-## トラブルシューティング
+## Troubleshooting
 
-| 問題 | 対処 |
-|------|------|
-| サムネイルが表示されない | 再スキャンボタン、または File > キャッシュをクリア |
-| 検索でヒットしない | File > タグを再生成 (初回は20-30分) |
-| HEICが表示されない | `which sips` で確認 (macOS標準で存在するはず) |
+| Problem | Solution |
+|---------|----------|
+| Thumbnails not showing | Click rescan button, or File > Clear Cache |
+| Search returns no results | File > Regenerate Tags (first run takes 20-30 min) |
+| HEIC not displaying | Verify with `which sips` (should exist on macOS by default) |
 
-## 開発者向け
+## For Developers
 
-詳細な仕様: [docs/SPEC.md](docs/SPEC.md)
+Detailed specification: [docs/SPEC.md](docs/SPEC.md)
 
 ```bash
-npm run tauri:dev          # 開発 (ホットリロード)
-npm run install-app        # ビルド + インストール + アドホック署名
-cd src-tauri && cargo test  # Rustテスト
+npm run tauri:dev          # Dev with hot reload
+npm run install-app        # Build + install + ad-hoc sign
+cd src-tauri && cargo test  # Run Rust tests
 ```
 
-## ライセンス
+## License
 
 ISC
