@@ -120,18 +120,18 @@ class Gallery {
   }
 
   renderFolderCard(folder) {
-    const coverSrc = folder.coverPath ? this.getThumbnailUrl({ path: folder.coverPath }) : '';
     const coverImg = folder.coverPath
-      ? `<img src="${coverSrc}"
+      ? `<img src="${folder.coverUrl}"
              data-path="${folder.coverPath}"
              alt="${folder.name}"
              loading="lazy"
              onload="this.parentElement.classList.remove('loading');this.parentElement.classList.remove('error')"
              onerror="if(!window.__TAURI__ && this.src){this.parentElement.classList.add('error');this.parentElement.classList.remove('loading')}">`
       : '';
+    const coverClass = folder.coverPath ? 'folder-cover loading' : 'folder-cover';
     return `
       <div class="grid-item folder" data-folder-path="${folder.path}">
-        <div class="folder-cover">${coverImg}</div>
+        <div class="${coverClass}">${coverImg}</div>
         <div class="folder-meta">
           <div class="folder-name">${folder.name}</div>
           <div class="folder-count">${folder.itemCount}件</div>
@@ -427,7 +427,8 @@ class Gallery {
           event: item.event,
           itemCount: 0,
           // filteredItems is pre-sorted; first encounter == first in current sort order
-          coverPath: item.path
+          coverPath: item.path,
+          coverUrl: this.getThumbnailUrl(item)
         });
       }
       folders.get(nextPart).itemCount++;
