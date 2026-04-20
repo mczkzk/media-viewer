@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## SSoT (Single Source of Truth) -- DO NOT REMOVE
+**You MUST keep these files up-to-date at every implementation milestone. This is non-negotiable.**
+- `.claude/tasks/*/plan.md` -- investigation findings, implementation progress, decisions
+- `docs/SPEC.md` -- project specification (if exists)
+
+Update these files BEFORE moving to the next task. They are the persistent record that survives context resets.
+
 ## Iron Rule
 
 **NEVER modify, edit, move, rename, or delete original media files.** The user's media folder is strictly read-only. All app data (tags, thumbnails, caches) goes to AppData only.
