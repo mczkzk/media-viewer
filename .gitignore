@@ -48,6 +48,7 @@ yarn-error.log*
 .idea/
 *.swp
 *.swo
+.claude/
 
 # Temporary files
 *.tmp

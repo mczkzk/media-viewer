@@ -120,22 +120,22 @@ class Gallery {
   }
 
   renderFolderCard(folder) {
+    const coverImg = folder.coverPath
+      ? `<img src="${folder.coverUrl}"
+             data-path="${folder.coverPath}"
+             alt="${folder.name}"
+             loading="lazy"
+             onload="this.parentElement.classList.remove('loading');this.parentElement.classList.remove('error')"
+             onerror="if(!window.__TAURI__ && this.src){this.parentElement.classList.add('error');this.parentElement.classList.remove('loading')}">`
+      : '';
+    const coverClass = folder.coverPath ? 'folder-cover loading' : 'folder-cover';
     return `
       <div class="grid-item folder" data-folder-path="${folder.path}">
-        <div class="folder-icon">
-          <svg width="64" height="54" viewBox="0 0 64 54" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M2 8C2 5.79 3.79 4 6 4h16l6 6h30c2.21 0 4 1.79 4 4v2H2V8z" fill="#5AB0F7"/>
-            <rect x="2" y="14" width="60" height="36" rx="3" fill="url(#folderGrad)"/>
-            <defs>
-              <linearGradient id="folderGrad" x1="32" y1="14" x2="32" y2="50" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#5AB0F7"/>
-                <stop offset="1" stop-color="#3D8CE4"/>
-              </linearGradient>
-            </defs>
-          </svg>
+        <div class="${coverClass}">${coverImg}</div>
+        <div class="folder-meta">
+          <div class="folder-name">${folder.name}</div>
+          <div class="folder-count">${folder.itemCount}件</div>
         </div>
-        <div class="folder-name">${folder.name}</div>
-        <div class="folder-count">${folder.itemCount}件</div>
       </div>
     `;
   }
@@ -425,7 +425,10 @@ class Gallery {
           path: [...this.currentPath, nextPart].join('/'),
           year: item.year,
           event: item.event,
-          itemCount: 0
+          itemCount: 0,
+          // filteredItems is pre-sorted; first encounter == first in current sort order
+          coverPath: item.path,
+          coverUrl: this.getThumbnailUrl(item)
         });
       }
       folders.get(nextPart).itemCount++;

@@ -122,6 +122,7 @@ Tauri WebView (Frontend) → IPC/HTTP → Rust Backend → Local Files
 #### gallery.js - ギャラリー表示
 - **Flat Mode** (デフォルト): 年区切りグリッド + 仮想スクロール
 - **Hierarchical Mode**: Finder風フォルダ/ファイル表示 + パンくず
+  - フォルダカードはカバーサムネイル表示 (Google Photosアルバム風): フォルダ配下の先頭メディア (現在のソート順) をカバーに使用。画像上部 (正方形) + 名前/件数メタを下部に表示
 - `tagMap`: バックエンドから取得したタグデータ
 - `_matchesQuery()`: path → event → filename → tags の順でマッチ (全てかな変換対応)
 - `preConvertSearchFields()`: ロード時にromaji/hiragana/katakana事前生成
