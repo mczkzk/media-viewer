@@ -131,7 +131,9 @@ fn find_binary(name: &str, npm_subpath: &str, well_known: &[&str]) -> Option<Str
         .join("node_modules")
         .join(npm_subpath)
         .join(name);
-    if npm_path.exists() {
+    // Must be a file: some packages (e.g. @ffprobe-installer/ffprobe) also expose a
+    // same-named directory, and a directory would satisfy a bare exists() check.
+    if npm_path.is_file() {
         return npm_path.to_str().map(String::from);
     }
 
@@ -159,11 +161,58 @@ fn which_ffmpeg() -> Option<String> {
 }
 
 fn which_ffprobe() -> Option<String> {
-    find_binary("ffprobe", "@ffprobe-installer", &[
+    // @ffprobe-installer ships the binary under a platform-specific subdirectory,
+    // e.g. node_modules/@ffprobe-installer/darwin-arm64/ffprobe.
+    let arch = if std::env::consts::ARCH == "aarch64" { "arm64" } else { "x64" };
+    let npm_subpath = format!("@ffprobe-installer/darwin-{}", arch);
+    find_binary("ffprobe", &npm_subpath, &[
         "/opt/homebrew/bin/ffprobe",
         "/usr/local/bin/ffprobe",
         "/usr/bin/ffprobe",
     ])
+}
+
+/// Read a video's capture time from the QuickTime `creationdate` tag.
+///
+/// Apple videos store the real capture time as local wall-clock with a timezone
+/// offset (e.g. "2026-07-21T11:42:37+0900"). We return it normalized to
+/// "YYYY-MM-DD HH:MM:SS" so the scanner can parse it exactly like EXIF, dropping the
+/// offset to match the naive-local convention used for image timestamps.
+///
+/// We deliberately ignore the generic `creation_time` tag: it is UTC and often holds
+/// the export/mux time rather than the capture time. Returns None when the QuickTime
+/// tag is absent, so the caller falls back to the filesystem birthtime.
+pub fn get_video_capture_datetime(path: &Path) -> Option<String> {
+    let ffprobe = which_ffprobe()?;
+    let output = Command::new(&ffprobe)
+        .args([
+            "-v", "quiet",
+            "-print_format", "json",
+            "-show_format",
+            path.to_str().unwrap_or(""),
+        ])
+        .output()
+        .ok()?;
+    let json_str = String::from_utf8(output.stdout).ok()?;
+    let data: serde_json::Value = serde_json::from_str(&json_str).ok()?;
+    let raw = data["format"]["tags"]["com.apple.quicktime.creationdate"].as_str()?;
+    Some(normalize_iso_datetime(raw))
+}
+
+/// Convert an ISO-8601 timestamp like "2026-07-21T11:42:37+0900" or
+/// "2026-07-21T11:42:37.000000Z" into "2026-07-21 11:42:37", dropping fractional
+/// seconds and the timezone offset.
+fn normalize_iso_datetime(s: &str) -> String {
+    let s = s.replace('T', " ");
+    let mut parts = s.splitn(2, ' ');
+    let date = parts.next().unwrap_or("");
+    let time_raw = parts.next().unwrap_or("");
+    // Time uses ':' separators, so the first '.', '+', 'Z', or '-' starts the
+    // fractional part or timezone offset.
+    let end = time_raw
+        .find(|c| c == '.' || c == '+' || c == 'Z' || c == '-')
+        .unwrap_or(time_raw.len());
+    format!("{} {}", date, &time_raw[..end])
 }
 
 /// Generate a video placeholder as JPEG
@@ -556,6 +605,25 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
+
+    #[test]
+    fn test_normalize_iso_datetime() {
+        // QuickTime creationdate with positive offset
+        assert_eq!(
+            normalize_iso_datetime("2026-07-21T11:42:37+0900"),
+            "2026-07-21 11:42:37"
+        );
+        // UTC with fractional seconds
+        assert_eq!(
+            normalize_iso_datetime("2026-07-22T09:41:03.000000Z"),
+            "2026-07-22 09:41:03"
+        );
+        // Negative offset
+        assert_eq!(
+            normalize_iso_datetime("2026-07-21T11:42:37-0700"),
+            "2026-07-21 11:42:37"
+        );
+    }
 
     #[test]
     fn test_hash_path_deterministic() {

@@ -344,7 +344,7 @@ class Gallery {
     if (yearCmp !== 0) return yearCmp;
     const mtimeA = a.mtime || 0;
     const mtimeB = b.mtime || 0;
-    return mtimeB - mtimeA;
+    return (mtimeA - mtimeB) * dir;
   }
 
   sortItems() {

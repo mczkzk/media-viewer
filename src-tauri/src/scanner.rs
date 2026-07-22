@@ -41,7 +41,9 @@ fn get_birthtime_ms(path: &Path) -> u64 {
         .unwrap_or(0)
 }
 
-/// Try to read EXIF DateTimeOriginal, falling back to filesystem birthtime.
+/// Determine a media file's capture time in milliseconds since epoch.
+/// Images: EXIF DateTimeOriginal. Videos: QuickTime creationdate via ffprobe.
+/// Both fall back to the filesystem birthtime when no capture time is available.
 /// EXIF format: "2026-04-16 12:08:00" or "2026:04:16 12:08:00"
 fn get_media_time_ms(path: &Path) -> u64 {
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
@@ -59,6 +61,14 @@ fn get_media_time_ms(path: &Path) -> u64 {
                             return ms;
                         }
                     }
+                }
+            }
+        } else if VIDEO_EXTENSIONS.contains(&lower.as_str()) {
+            // Videos carry no EXIF; read the QuickTime capture time via ffprobe so
+            // they sort by when they were shot, not when they were imported.
+            if let Some(dt) = crate::thumbnail::get_video_capture_datetime(path) {
+                if let Some(ms) = parse_exif_datetime(&dt) {
+                    return ms;
                 }
             }
         }
