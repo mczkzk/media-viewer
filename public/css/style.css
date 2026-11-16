@@ -99,6 +99,24 @@ body {
   animation: spin 0.8s linear infinite;
 }
 
+.view-toggle {
+  display: inline-flex;
+  height: 40px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.view-toggle .toolbar-btn {
+  border-radius: 0;
+}
+
+.view-toggle .toolbar-btn.active {
+  background-color: rgba(0, 0, 0, 0.08);
+  color: #007aff;
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

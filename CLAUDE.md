@@ -117,18 +117,18 @@ npm run build:helpers   # Compile Swift helpers (first time or after .swift chan
 
 ### Frontend Architecture (Vanilla JS)
 
-**Two display modes:**
+**Two display modes** (folder/list toggle buttons in the header; independent of the year filter):
 
-1. **Flat Mode** (default):
+1. **Hierarchical Mode** (default):
+   - Shows folder/file structure (Finder-like)
+   - "All years" (root): every year's event folders in sequence under year dividers
+   - Year selected: starts at that year's event folders
+   - Breadcrumb navigation; "All" returns to the root and clears the year filter
+
+2. **Flat Mode**:
    - All files shown in chronological grid with year dividers
    - Year index navigation on right side (hover to reveal)
-   - Supports search, sort, and filtering
-
-2. **Hierarchical Mode** (triggered by year filter):
-   - Shows folder/file structure (Finder-like)
-   - Breadcrumb navigation
-   - Folders clickable to navigate deeper
-   - Clear year filter to return to flat mode
+   - Year selected: shows only that year's files
 
 **Key Components:**
 
@@ -167,9 +167,9 @@ npm run build:helpers   # Compile Swift helpers (first time or after .swift chan
 ### Critical Implementation Details
 
 **Year Filter Behavior:**
-- Selecting year → switches to hierarchical mode at event folder level
-- Year filter starts at `currentPath = [year]` (not root)
-- Clearing year filter → returns to flat mode
+- Year filter only narrows `filteredItems`; it never changes the display mode (both go through `gallery.setView()`)
+- Hierarchical: selecting a year sets `currentPath = [year]`; clearing it sets `currentPath = []` (root, all years concatenated)
+- Flat: selecting a year shows only that year's files
 
 **Hierarchical Mode:**
 - Frontend-only: reconstructs folder tree from flat `path` strings
@@ -186,7 +186,7 @@ npm run build:helpers   # Compile Swift helpers (first time or after .swift chan
 - Click year → updates URL hash (`#2025`) and scrolls to year divider
 
 **URL State Persistence:**
-- Query params: `?year=2025&q=tokyo` (hierarchical mode + search)
+- Query params: `?view=flat&year=2025&path=2025/event&q=tokyo` (`view` omitted means hierarchical)
 - Hash: `#2025` (scroll position in flat mode)
 - State restored on page reload
 - `updateURL()` called on filter/search/mode changes
