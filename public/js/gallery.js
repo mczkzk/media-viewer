@@ -7,9 +7,36 @@ class Gallery {
     this.selectedYear = '';
     this.searchQuery = '';
     this.sortOrder = 'desc';
-    this.displayMode = 'flat'; // 'flat' or 'hierarchical'
+    this.displayMode = 'hierarchical'; // 'flat' or 'hierarchical'
     this.currentPath = [];
     this.tagMap = {};  // { relativePath: ["tag1", "tag2"] }
+    this.coverMap = {};  // { folderPath: relativePath of the file chosen as cover }
+  }
+
+  async loadCovers() {
+    // Covers are optional decoration; the gallery must still open if they cannot be read
+    try {
+      this.coverMap = this._isTauri()
+        ? await this.tauriApp.getCovers()
+        : await (await fetch('/api/covers')).json();
+    } catch (e) {
+      console.error('Failed to load folder covers:', e);
+    }
+  }
+
+  // file = null clears the custom cover
+  async setCover(folder, file) {
+    if (this._isTauri()) {
+      await this.tauriApp.setCover(folder, file);
+    } else {
+      await fetch('/api/covers', { method: 'POST', body: JSON.stringify({ folder, file }) });
+    }
+    if (file) this.coverMap[folder] = file;
+    else delete this.coverMap[folder];
+  }
+
+  _isTauri() {
+    return !!(this.tauriApp && this.tauriApp.isTauri);
   }
 
   async load({ force = false } = {}) {
@@ -99,24 +126,34 @@ class Gallery {
   }
 
   renderHierarchical() {
-    const items = this.buildCurrentViewItems();
+    this.updateYearIndex();
 
-    if (items.length === 0) {
+    let html;
+    if (this.currentPath.length === 0) {
+      // Root shows every year's folders in sequence, each under a year divider
+      const counts = this.getYearCounts(this.filteredItems);
+      html = this.getYears(this.filteredItems).map(year =>
+        `<div class="year-divider" data-year="${year}">${year} <span class="year-count">(${counts[year]}件)</span></div>` +
+        this.renderViewItems(this.buildCurrentViewItems([year]))
+      ).join('');
+    } else {
+      html = this.renderViewItems(this.buildCurrentViewItems());
+    }
+
+    if (!html) {
       this.container.innerHTML = '<div class="loading-message">メディアが見つかりません</div>';
       return;
     }
 
-    const html = items.map((item) => {
-      if (item.type === 'folder') {
-        return this.renderFolderCard(item);
-      } else {
-        return this.renderMediaCard(item, item._filteredIndex);
-      }
-    }).join('');
-
     this.container.innerHTML = html;
     this.attachClickHandlers();
     this.loadTauriThumbnails();
+  }
+
+  renderViewItems(items) {
+    return items.map(item =>
+      item.type === 'folder' ? this.renderFolderCard(item) : this.renderMediaCard(item, item._filteredIndex)
+    ).join('');
   }
 
   renderFolderCard(folder) {
@@ -281,11 +318,6 @@ class Gallery {
     });
   }
 
-  filterByYear(year) {
-    this.selectedYear = year;
-    this.applyFilters();
-  }
-
   filterByEvent(query) {
     this.searchQuery = query.toLowerCase();
     this.applyFilters();
@@ -386,26 +418,26 @@ class Gallery {
     if (this.displayMode === 'flat') {
       return this.filteredItems.map((_, i) => i);
     }
-    // Hierarchical: only files at current folder depth
+    // Hierarchical: only files at current folder depth (root lists every year's direct children)
     const indices = [];
-    const depth = this.currentPath.length;
+    const depth = this.currentPath.length || 1;
     this.filteredItems.forEach((item, i) => {
       const parts = item.path.split('/');
-      if (depth > 0 && !this.currentPath.every((p, j) => parts[j] === p)) return;
+      if (!this.currentPath.every((p, j) => parts[j] === p)) return;
       if (parts.length === depth + 1) indices.push(i);
     });
     return indices;
   }
 
-  buildCurrentViewItems() {
+  buildCurrentViewItems(basePath = this.currentPath) {
     const folders = new Map();
     const files = [];
-    const currentDepth = this.currentPath.length;
+    const currentDepth = basePath.length;
 
     this.filteredItems.forEach((item, filteredIndex) => {
       const pathParts = item.path.split('/');
 
-      if (currentDepth > 0 && !this.currentPath.every((part, i) => pathParts[i] === part)) {
+      if (!basePath.every((part, i) => pathParts[i] === part)) {
         return;
       }
 
@@ -422,7 +454,7 @@ class Gallery {
         folders.set(nextPart, {
           type: 'folder',
           name: nextPart,
-          path: [...this.currentPath, nextPart].join('/'),
+          path: [...basePath, nextPart].join('/'),
           year: item.year,
           event: item.event,
           itemCount: 0,
@@ -431,7 +463,13 @@ class Gallery {
           coverUrl: this.getThumbnailUrl(item)
         });
       }
-      folders.get(nextPart).itemCount++;
+      const folder = folders.get(nextPart);
+      folder.itemCount++;
+      // A chosen cover that is filtered out or deleted never matches, so the automatic one stays
+      if (this.coverMap[folder.path] === item.path) {
+        folder.coverPath = item.path;
+        folder.coverUrl = this.getThumbnailUrl(item);
+      }
     });
 
     const allItems = [...folders.values(), ...files];
@@ -445,39 +483,23 @@ class Gallery {
     return allItems;
   }
 
+  // Browsing into a folder also points the year filter at that folder's year
   navigateIntoFolder(folderPath) {
-    this.currentPath = folderPath.split('/');
-    this.render();
-    this.updateBreadcrumb();
-    this.updateURL();
+    this.setView({ year: folderPath.split('/')[0], path: folderPath });
   }
 
   navigateBack(depth) {
-    this.currentPath = this.currentPath.slice(0, depth);
-    this.render();
-    this.updateBreadcrumb();
-    this.updateURL();
+    this.navigateIntoFolder(this.currentPath.slice(0, depth).join('/'));
   }
 
-  switchToHierarchicalMode(year, initialPath = null) {
-    this._destroyVirtualScroller();
-    this.displayMode = 'hierarchical';
+  // Display mode and year filter are independent; the folder view opens at the selected year, or at the root of all years
+  setView({ mode = this.displayMode, year = this.selectedYear, path = null } = {}) {
+    if (mode === 'hierarchical') this._destroyVirtualScroller();
+    this.displayMode = mode;
     this.selectedYear = year;
-    this.currentPath = initialPath ? initialPath.split('/') : [year];
-    this.applyFilters();
-    this.updateBreadcrumb();
-    this.updateURL();
-
-    const yearIndex = document.getElementById('year-index');
-    if (yearIndex) {
-      yearIndex.style.display = 'none';
-    }
-  }
-
-  switchToFlatMode() {
-    this.displayMode = 'flat';
-    this.selectedYear = '';
-    this.currentPath = [];
+    const yearFilter = document.getElementById('year-filter');
+    if (yearFilter) yearFilter.value = year;
+    this.currentPath = path ? path.split('/') : (year ? [year] : []);
     this.applyFilters();
     this.updateBreadcrumb();
     this.updateURL();
@@ -485,9 +507,11 @@ class Gallery {
 
   updateURL() {
     const params = new URLSearchParams();
+    if (this.displayMode === 'flat') params.set('view', 'flat');
     if (this.selectedYear) params.set('year', this.selectedYear);
     if (this.searchQuery) params.set('q', this.searchQuery);
-    if (this.currentPath.length > 1) params.set('path', this.currentPath.join('/'));
+    const path = this.currentPath.join('/');
+    if (path && path !== this.selectedYear) params.set('path', path);
     const newURL = params.toString() ? `?${params.toString()}` : window.location.pathname;
     window.history.replaceState({}, '', newURL);
   }
@@ -495,6 +519,7 @@ class Gallery {
   restoreFromURL() {
     const params = new URLSearchParams(window.location.search);
     return {
+      view: params.get('view'),
       year: params.get('year'),
       query: params.get('q'),
       path: params.get('path'),
@@ -525,7 +550,7 @@ class Gallery {
     const breadcrumb = document.getElementById('breadcrumb');
     if (!breadcrumb) return;
 
-    if (this.displayMode === 'flat') {
+    if (this.displayMode === 'flat' || this.currentPath.length === 0) {
       breadcrumb.style.display = 'none';
       return;
     }
@@ -546,8 +571,7 @@ class Gallery {
     breadcrumb.innerHTML = items.join('');
 
     breadcrumb.querySelector('[data-action="all"]').addEventListener('click', () => {
-      document.getElementById('year-filter').value = '';
-      this.switchToFlatMode();
+      this.setView({ year: '' });
     });
 
     breadcrumb.querySelectorAll('[data-depth]').forEach(item => {

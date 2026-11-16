@@ -15,6 +15,18 @@
         <select id="year-filter" class="filter-select">
           <option value="">すべての年</option>
         </select>
+        <div class="view-toggle" id="view-toggle">
+          <button class="toolbar-btn active" data-view="hierarchical" title="フォルダ表示">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 3a1 1 0 0 1 1-1h4l2 2h6a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3z" fill="currentColor"/>
+            </svg>
+          </button>
+          <button class="toolbar-btn" data-view="flat" title="一覧表示">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 1h6v6H1zM9 1h6v6H9zM1 9h6v6H1zM9 9h6v6H9z" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
         <input type="search" id="search-input" class="search-input" placeholder="検索...">
         <select id="sort-order" class="filter-select">
           <option value="desc">新しい順</option>
@@ -50,6 +62,7 @@
       <button class="lightbox-prev" id="lightbox-prev">&lt;</button>
       <button class="lightbox-next" id="lightbox-next">&gt;</button>
       <button class="lightbox-info-btn" id="lightbox-info-btn" title="詳細情報">ⓘ</button>
+      <button class="lightbox-info-btn lightbox-cover-btn" id="lightbox-cover-btn" aria-pressed="false"></button>
       <div class="lightbox-content" id="lightbox-content">
         <img src="" alt="">
       </div>
@@ -99,7 +112,8 @@
         const galleryContainer = document.getElementById('gallery');
         const gallery = new Gallery(galleryContainer, tauriApp);
 
-        // Load media data
+        // Load media data (covers first, so the first render already uses them)
+        await gallery.loadCovers();
         await gallery.load();
 
         // Load tags and start background tagging
@@ -140,11 +154,23 @@
 
         updateYearFilter();
 
+        // View mode toggle (folder / flat)
+        const viewToggle = document.getElementById('view-toggle');
+        function setViewMode(mode, opts = {}) {
+          gallery.setView({ mode, ...opts });
+          viewToggle.querySelectorAll('[data-view]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === mode);
+          });
+          updateStats();
+        }
+        viewToggle.querySelectorAll('[data-view]').forEach(btn => {
+          btn.addEventListener('click', () => setViewMode(btn.dataset.view));
+        });
+
         // Restore state from URL
         const urlState = gallery.restoreFromURL();
-        if (urlState.year) {
-          yearFilter.value = urlState.year;
-          gallery.switchToHierarchicalMode(urlState.year, urlState.path);
+        if (urlState.view || urlState.year || urlState.path) {
+          setViewMode(urlState.view === 'flat' ? 'flat' : 'hierarchical', { year: urlState.year || '', path: urlState.path });
         }
         if (urlState.query) {
           searchInput.value = urlState.query;
@@ -166,11 +192,7 @@
 
         // Year filter handler
         yearFilter.addEventListener('change', (e) => {
-          if (e.target.value) {
-            gallery.switchToHierarchicalMode(e.target.value);
-          } else {
-            gallery.switchToFlatMode();
-          }
+          gallery.setView({ year: e.target.value });
           updateStats();
         });
 
@@ -202,11 +224,12 @@
               statsText.textContent = '読み込み中...';
               yearFilter.value = '';
               searchInput.value = '';
-              gallery.displayMode = 'flat';
               gallery.selectedYear = '';
               gallery.currentPath = [];
               gallery.searchQuery = '';
               await gallery.load({ force: true });
+              gallery.updateBreadcrumb();
+              gallery.updateURL();
               updateYearFilter();
               updateStats();
             }

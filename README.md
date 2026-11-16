@@ -101,6 +101,7 @@ Detailed specification: [docs/SPEC.md](docs/SPEC.md)
 
 ```bash
 npm run tauri:dev          # Dev with hot reload
+npm run dev:web            # Frontend only in a browser, with synthetic data (no Tauri)
 npm run install-app        # Build + install + ad-hoc sign
 cd src-tauri && cargo test  # Run Rust tests
 ```
