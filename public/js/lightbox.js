@@ -13,8 +13,13 @@ class Lightbox {
     this.coverBtn = document.getElementById('lightbox-cover-btn');
     this.infoPanelContent = document.getElementById('info-panel-content');
     this.infoPanelOpen = false;
+    // Magnification of the current image and how far it is moved from the centered position
+    this.zoom = 1;
+    this.panX = 0;
+    this.panY = 0;
 
     this.bindEvents();
+    this.bindZoomEvents();
   }
 
   bindEvents() {
@@ -68,6 +73,8 @@ class Lightbox {
       const img = document.createElement('img');
       img.src = mediaUrl;
       img.alt = item.filename;
+      // The browser's own image drag would take over the drag used to move a zoomed image
+      img.draggable = false;
       this.content.appendChild(img);
     } else if (item.type === 'video') {
       const video = document.createElement('video');
@@ -77,6 +84,9 @@ class Lightbox {
       video.volume = 0.3;
       this.content.appendChild(video);
     }
+
+    this.zoom = 1;
+    this.applyZoom();
 
     this.info.querySelector('.lightbox-filename').textContent = item.filename;
     this.info.querySelector('.lightbox-counter').textContent = `${this.currentNavPos + 1} / ${this.navIndices.length}`;
@@ -93,6 +103,64 @@ class Lightbox {
     if (this.infoPanelOpen) {
       this.openInfoPanel();
     }
+  }
+
+  bindZoomEvents() {
+    const hasImage = () => this.content.querySelector('img') !== null;
+
+    this.content.addEventListener('wheel', (e) => {
+      if (!hasImage()) return;
+      e.preventDefault();
+      // A trackpad pinch arrives as a wheel event with ctrlKey set and much smaller steps than a mouse wheel
+      const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002));
+      this.zoomAt(this.zoom * factor, e.clientX, e.clientY);
+    }, { passive: false });
+
+    this.content.addEventListener('dblclick', (e) => {
+      if (!hasImage()) return;
+      this.zoomAt(this.zoom > 1 ? 1 : 2.5, e.clientX, e.clientY);
+    });
+
+    let lastX = 0;
+    let lastY = 0;
+    this.content.addEventListener('pointerdown', (e) => {
+      if (!hasImage() || this.zoom === 1) return;
+      this.content.setPointerCapture(e.pointerId);
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+    this.content.addEventListener('pointermove', (e) => {
+      if (!this.content.hasPointerCapture(e.pointerId)) return;
+      this.panX += e.clientX - lastX;
+      this.panY += e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      this.applyZoom();
+    });
+  }
+
+  // Zoom while keeping the image point under (clientX, clientY) in place
+  zoomAt(newZoom, clientX, clientY) {
+    const zoom = Math.min(8, Math.max(1, newZoom));
+    const rect = this.content.getBoundingClientRect();
+    const fromCenterX = clientX - (rect.left + rect.width / 2);
+    const fromCenterY = clientY - (rect.top + rect.height / 2);
+    this.panX = fromCenterX - (fromCenterX - this.panX) * zoom / this.zoom;
+    this.panY = fromCenterY - (fromCenterY - this.panY) * zoom / this.zoom;
+    this.zoom = zoom;
+    this.applyZoom();
+  }
+
+  applyZoom() {
+    this.content.classList.toggle('zoomed', this.zoom > 1);
+    const img = this.content.querySelector('img');
+    if (!img) return;
+    // Stop the image edge from being dragged past the edge of the viewing area
+    const maxX = Math.max(0, (img.offsetWidth * this.zoom - this.content.clientWidth) / 2);
+    const maxY = Math.max(0, (img.offsetHeight * this.zoom - this.content.clientHeight) / 2);
+    this.panX = Math.min(maxX, Math.max(-maxX, this.panX));
+    this.panY = Math.min(maxY, Math.max(-maxY, this.panY));
+    img.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
   }
 
   close() {
