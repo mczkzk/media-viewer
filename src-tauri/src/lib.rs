@@ -184,6 +184,47 @@ async fn get_tags(app: tauri::AppHandle) -> Result<std::collections::HashMap<Str
     Ok(tagger::load_tags(&app_data_dir))
 }
 
+type Covers = std::collections::HashMap<String, String>;
+
+// Covers are the user's choices, not a cache, so they live outside cache/ and survive "clear cache".
+// Stored per media folder so switching folders never mixes up covers.
+fn load_covers(app: &tauri::AppHandle, base_path: &str) -> Result<Covers, String> {
+    let store = app
+        .store("covers.json")
+        .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    Ok(store
+        .get(base_path)
+        .and_then(|v: serde_json::Value| serde_json::from_value(v).ok())
+        .unwrap_or_default())
+}
+
+#[tauri::command]
+async fn get_covers(app: tauri::AppHandle, base_path: String) -> Result<Covers, String> {
+    load_covers(&app, &base_path)
+}
+
+// file = None removes the custom cover, returning the folder to the automatic one
+#[tauri::command]
+async fn set_cover(
+    app: tauri::AppHandle,
+    base_path: String,
+    folder: String,
+    file: Option<String>,
+) -> Result<(), String> {
+    let mut covers = load_covers(&app, &base_path)?;
+    match file {
+        Some(file) => covers.insert(folder, file),
+        None => covers.remove(&folder),
+    };
+    let store = app
+        .store("covers.json")
+        .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    store.set(base_path, serde_json::json!(covers));
+    store
+        .save()
+        .map_err(|e: tauri_plugin_store::Error| e.to_string())
+}
+
 #[tauri::command]
 async fn tag_images(
     app: tauri::AppHandle,
@@ -433,6 +474,8 @@ pub fn run() {
             clear_tags,
             get_tags,
             tag_images,
+            get_covers,
+            set_cover,
             show_in_finder
         ])
         .run(tauri::generate_context!())

@@ -10,6 +10,33 @@ class Gallery {
     this.displayMode = 'hierarchical'; // 'flat' or 'hierarchical'
     this.currentPath = [];
     this.tagMap = {};  // { relativePath: ["tag1", "tag2"] }
+    this.coverMap = {};  // { folderPath: relativePath of the file chosen as cover }
+  }
+
+  async loadCovers() {
+    // Covers are optional decoration; the gallery must still open if they cannot be read
+    try {
+      this.coverMap = this._isTauri()
+        ? await this.tauriApp.getCovers()
+        : await (await fetch('/api/covers')).json();
+    } catch (e) {
+      console.error('Failed to load folder covers:', e);
+    }
+  }
+
+  // file = null clears the custom cover
+  async setCover(folder, file) {
+    if (this._isTauri()) {
+      await this.tauriApp.setCover(folder, file);
+    } else {
+      await fetch('/api/covers', { method: 'POST', body: JSON.stringify({ folder, file }) });
+    }
+    if (file) this.coverMap[folder] = file;
+    else delete this.coverMap[folder];
+  }
+
+  _isTauri() {
+    return !!(this.tauriApp && this.tauriApp.isTauri);
   }
 
   async load({ force = false } = {}) {
@@ -436,7 +463,13 @@ class Gallery {
           coverUrl: this.getThumbnailUrl(item)
         });
       }
-      folders.get(nextPart).itemCount++;
+      const folder = folders.get(nextPart);
+      folder.itemCount++;
+      // A chosen cover that is filtered out or deleted never matches, so the automatic one stays
+      if (this.coverMap[folder.path] === item.path) {
+        folder.coverPath = item.path;
+        folder.coverUrl = this.getThumbnailUrl(item);
+      }
     });
 
     const allItems = [...folders.values(), ...files];

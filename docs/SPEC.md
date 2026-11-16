@@ -127,6 +127,7 @@ Tauri WebView (Frontend) → IPC/HTTP → Rust Backend → Local Files
   - フォルダに潜る / パンくずで戻ると、年セレクトもその階層の年に同期 (ルートに戻ると「すべての年」)
 - **Flat Mode** (一覧表示): 年区切りグリッド + 仮想スクロール + 右端の年ジャンプ。年を選択するとその年のみ表示
   - フォルダカードはカバーサムネイル表示 (Google Photosアルバム風): フォルダ配下の先頭メディア (現在のソート順) をカバーに使用。画像上部 (正方形) + 名前/件数メタを下部に表示
+  - カバーは手動指定可能: ライトボックスのフォルダボタンで、表示中のファイルを「直上フォルダ」のカバーに設定/解除 (年直下のファイルでは非表示)。指定ファイルが検索で除外・削除されている間は自動カバーに戻る
 - `tagMap`: バックエンドから取得したタグデータ
 - `_matchesQuery()`: path → event → filename → tags の順でマッチ (全てかな変換対応)
 - `preConvertSearchFields()`: ロード時にromaji/hiragana/katakana事前生成
@@ -140,6 +141,7 @@ Tauri WebView (Frontend) → IPC/HTTP → Rust Backend → Local Files
 #### lightbox.js - ライトボックス
 - フルスクリーン画像/動画表示
 - 矢印キーナビ、Escape、(i)情報パネル
+- フォルダカバー設定ボタン (設定済みのファイルでは反転表示、再クリックで解除)
 - `filteredItems` 順でナビゲーション
 - 情報パネル最下部にタグをピル表示
 
@@ -165,12 +167,15 @@ Tauri WebView (Frontend) → IPC/HTTP → Rust Backend → Local Files
 | `get_tags` | - | `HashMap<String, Vec<String>>` | 全タグデータ取得 |
 | `tag_images` | `paths[]`, `base_path` | `usize` | バッチタグ付け (Vision+OCR+GPS) |
 | `clear_tags` | - | - | タグ全削除 (再生成用) |
+| `get_covers` | `base_path` | `HashMap<String, String>` | フォルダカバー指定の取得 (フォルダパス → ファイルパス) |
+| `set_cover` | `base_path`, `folder`, `file?` | - | フォルダカバーの設定 (`file` 省略で解除) |
 
 ### データ永続化
 
 ```
 ~/Library/Application Support/com.mediaviewer.app/
 ├── settings.json              # plugin-store (mediaBasePath)
+├── covers.json                # plugin-store (フォルダカバー指定、メディアフォルダ別。cache clearで消えない)
 └── cache/
     ├── index.json             # スキャンキャッシュ (24h TTL)
     ├── tags.json              # 画像タグ (永続、cache clearで消えない)

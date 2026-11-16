@@ -474,6 +474,24 @@ body {
   background-color: rgba(0, 0, 0, 0.7);
 }
 
+.lightbox-cover-btn {
+  right: 140px;
+  width: auto;
+  padding: 0 16px;
+  border-radius: 22px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.lightbox-modal.info-open .lightbox-cover-btn {
+  right: 540px;
+}
+
+.lightbox-cover-btn.active {
+  background-color: #fff;
+  color: #222;
+}
+
 /* Info Panel */
 .lightbox-info-panel {
   width: 0;

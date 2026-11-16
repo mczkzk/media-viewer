@@ -10,6 +10,7 @@ class Lightbox {
     this.info = document.getElementById('lightbox-info');
     this.infoBtn = document.getElementById('lightbox-info-btn');
     this.infoPanel = document.getElementById('lightbox-info-panel');
+    this.coverBtn = document.getElementById('lightbox-cover-btn');
     this.infoPanelContent = document.getElementById('info-panel-content');
     this.infoPanelOpen = false;
 
@@ -25,6 +26,7 @@ class Lightbox {
     this.prevBtn.addEventListener('click', () => this.prev());
     this.nextBtn.addEventListener('click', () => this.next());
     this.infoBtn.addEventListener('click', () => this.toggleInfoPanel());
+    this.coverBtn.addEventListener('click', () => this.toggleCover());
 
     document.addEventListener('keydown', (e) => {
       if (!this.modal.classList.contains('active')) return;
@@ -79,6 +81,8 @@ class Lightbox {
     this.info.querySelector('.lightbox-filename').textContent = item.filename;
     this.info.querySelector('.lightbox-counter').textContent = `${this.currentNavPos + 1} / ${this.navIndices.length}`;
 
+    this.updateCoverBtn(item);
+
     // Show/hide prev/next buttons
     this.prevBtn.style.display = this.currentNavPos > 0 ? '' : 'none';
     this.nextBtn.style.display = this.currentNavPos < this.navIndices.length - 1 ? '' : 'none';
@@ -113,6 +117,37 @@ class Lightbox {
     if (this.currentNavPos < this.navIndices.length - 1) {
       this.show(this.navIndices[this.currentNavPos + 1]);
     }
+  }
+
+  // The folder directly containing the file. Year folders are never shown as cards, so they get no cover.
+  coverFolderOf(item) {
+    const parts = item.path.split('/');
+    return parts.length > 2 ? parts.slice(0, -1).join('/') : null;
+  }
+
+  updateCoverBtn(item) {
+    const folder = this.coverFolderOf(item);
+    this.coverBtn.style.display = folder ? '' : 'none';
+    if (!folder) return;
+    const isCover = this.gallery.coverMap[folder] === item.path;
+    const label = isCover ? 'フォルダのカバーを解除' : 'このフォルダのカバーにする';
+    this.coverBtn.classList.toggle('active', isCover);
+    this.coverBtn.setAttribute('aria-pressed', isCover);
+    this.coverBtn.textContent = isCover ? '✓ カバーに設定中' : 'カバーに設定';
+    this.coverBtn.title = label;
+  }
+
+  async toggleCover() {
+    const item = this.gallery.getItem(this.currentIndex);
+    const folder = this.coverFolderOf(item);
+    const isCover = this.gallery.coverMap[folder] === item.path;
+    try {
+      await this.gallery.setCover(folder, isCover ? null : item.path);
+    } catch (e) {
+      console.error('Failed to save folder cover:', e);
+      alert('カバーの保存に失敗しました');
+    }
+    this.updateCoverBtn(item);
   }
 
   async toggleInfoPanel() {

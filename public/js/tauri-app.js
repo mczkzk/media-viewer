@@ -103,6 +103,14 @@ class TauriApp {
     return await window.__TAURI__.core.invoke('get_tags');
   }
 
+  async getCovers() {
+    return await window.__TAURI__.core.invoke('get_covers', { basePath: this.mediaBasePath });
+  }
+
+  async setCover(folder, file) {
+    await window.__TAURI__.core.invoke('set_cover', { basePath: this.mediaBasePath, folder, file });
+  }
+
   async tagImages(paths) {
     return await window.__TAURI__.core.invoke('tag_images', {
       paths,

@@ -120,6 +120,8 @@ npm run build:helpers   # Compile Swift helpers (first time or after .swift chan
 | `get_tags` | - | `HashMap<String, Vec<String>>` | Get all image tags |
 | `tag_images` | `paths[]`, `base_path` | `usize` | Batch tag images (Vision + OCR + GPS) |
 | `clear_tags` | - | - | Delete tags.json for regeneration |
+| `get_covers` | `base_path` | `HashMap<String, String>` | Custom folder covers (folder path → file path) |
+| `set_cover` | `base_path`, `folder`, `file?` | - | Set a folder's cover (omit `file` to clear) |
 
 ### Frontend Architecture (Vanilla JS)
 

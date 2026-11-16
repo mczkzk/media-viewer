@@ -42,11 +42,29 @@ function placeholder(p) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="${c}"/><text x="150" y="155" font-size="22" text-anchor="middle" fill="#fff" font-family="sans-serif">${label}</text></svg>`;
 }
 
+// Folder covers chosen in the lightbox; kept in memory only, so they reset on restart
+const covers = {};
+
 http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   if (url.pathname === '/api/media') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify(items));
+  }
+  if (url.pathname === '/api/covers') {
+    if (req.method !== 'POST') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(covers));
+    }
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    return req.on('end', () => {
+      const { folder, file } = JSON.parse(body);
+      if (file) covers[folder] = file;
+      else delete covers[folder];
+      res.writeHead(204);
+      res.end();
+    });
   }
   if (url.pathname === '/api/thumbnail' || url.pathname === '/api/image') {
     res.writeHead(200, { 'Content-Type': 'image/svg+xml' });

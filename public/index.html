@@ -62,6 +62,7 @@
       <button class="lightbox-prev" id="lightbox-prev">&lt;</button>
       <button class="lightbox-next" id="lightbox-next">&gt;</button>
       <button class="lightbox-info-btn" id="lightbox-info-btn" title="詳細情報">ⓘ</button>
+      <button class="lightbox-info-btn lightbox-cover-btn" id="lightbox-cover-btn" aria-pressed="false"></button>
       <div class="lightbox-content" id="lightbox-content">
         <img src="" alt="">
       </div>
@@ -111,7 +112,8 @@
         const galleryContainer = document.getElementById('gallery');
         const gallery = new Gallery(galleryContainer, tauriApp);
 
-        // Load media data
+        // Load media data (covers first, so the first render already uses them)
+        await gallery.loadCovers();
         await gallery.load();
 
         // Load tags and start background tagging
