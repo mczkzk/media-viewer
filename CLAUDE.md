@@ -25,6 +25,12 @@ npm run tauri:dev
 npm run tauri:build
 ```
 
+**Run the frontend in a browser with synthetic data (UI checks without Tauri):**
+```bash
+npm run dev:web   # http://127.0.0.1:4178, served by scripts/mock-server.js
+```
+Covers gallery/lightbox/URL behavior only; Tauri IPC, thumbnail cache, and menus are not exercised. `/e2e-verify` targets this URL via `.claude/e2e-verify/config.yaml`.
+
 **Build + install to /Applications + ad-hoc sign:**
 ```bash
 npm run install-app
