@@ -383,6 +383,14 @@ body {
   height: auto;
 }
 
+.lightbox-content img {
+  cursor: zoom-in;
+}
+
+.lightbox-content.zoomed img {
+  cursor: grab;
+}
+
 .lightbox-close,
 .lightbox-prev,
 .lightbox-next {
